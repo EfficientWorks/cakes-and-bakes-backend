@@ -26,9 +26,15 @@ type Business struct {
 	DefaultTaxRatePct float64
 	ContactEmail      *string
 	ContactPhone      *string
-	Status            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// LogoURL is the logo on the business's shop, emails and invoices.
+	LogoURL *string
+	// WebsiteURL is the origin the business's shop is served from
+	// (https://cakesandbakes.co.uk). Email links point there, and a browser
+	// request from it is recognised as this business's shop.
+	WebsiteURL *string
+	Status     string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // NewBusiness is what registering a business needs. Optional fields left
@@ -45,6 +51,8 @@ type NewBusiness struct {
 	TaxMode           string
 	TaxName           string
 	DefaultTaxRatePct *float64
+	LogoURL           string
+	WebsiteURL        string
 }
 
 // BusinessPatch changes some of a business's settings. Nil leaves a field as
@@ -59,5 +67,8 @@ type BusinessPatch struct {
 	TaxMode           *string
 	TaxName           *string
 	DefaultTaxRatePct *float64
-	Status            *string
+	// LogoURL and WebsiteURL: "" removes the value.
+	LogoURL    *string
+	WebsiteURL *string
+	Status     *string
 }

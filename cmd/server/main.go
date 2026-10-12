@@ -288,11 +288,47 @@ func main() {
 
 	enquiriesSvc := enquiries.New(pool, franchiseSvc.Branches(), emailer, limiter)
 	businessSvc := business.New(pool, identitySvc.BusinessOwners(), cfg.PlatformAPIKey)
+	businessSvc.UseMedia(imageStore)
+
+	// Emails go out as the business they are about, and hosted payment pages
+	// return customers to that business's own website.
+	email.SetBrandLookup(func(ctx context.Context, id string) (email.Brand, bool) {
+		b, err := businessSvc.Business(ctx, id)
+		if err != nil {
+			return email.Brand{}, false
+		}
+		return email.Brand{Name: b.Name, LogoURL: deref(b.LogoURL), WebsiteURL: deref(b.WebsiteURL), Currency: b.Currency}, true
+	})
+	// Addresses are searched in the business's own country.
+	geo.SetCountryLookup(func(ctx context.Context) string {
+		if id := tenant.BusinessID(ctx); id != "" {
+			if b, err := businessSvc.Business(ctx, id); err == nil {
+				return b.CountryCode
+			}
+		}
+		return ""
+	})
+	paymentsSvc.UseShopURL(func(ctx context.Context) string {
+		if id := tenant.BusinessID(ctx); id != "" {
+			if b, err := businessSvc.Business(ctx, id); err == nil {
+				return deref(b.WebsiteURL)
+			}
+		}
+		return ""
+	})
 	if cfg.PlatformAPIKey == "" {
 		log.Warn("PLATFORM_API_KEY not set — /v1/platform (business registration) answers 503")
 	}
 	// Brand-level enquiries need a mailbox somebody reads, not a constant.
 	enquiriesSvc.UseBrandInbox(cfg.BrandInboxEmail)
+	enquiriesSvc.UseBusinessInbox(func(ctx context.Context) string {
+		if id := tenant.BusinessID(ctx); id != "" {
+			if b, err := businessSvc.Business(ctx, id); err == nil {
+				return deref(b.ContactEmail)
+			}
+		}
+		return ""
+	})
 
 	// --- routing ---------------------------------------------------------
 
@@ -335,4 +371,11 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Error("graceful shutdown failed", "error", err)
 	}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

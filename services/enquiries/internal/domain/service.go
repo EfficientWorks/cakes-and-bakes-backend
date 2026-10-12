@@ -41,8 +41,11 @@ type Service struct {
 	branches BranchLookup
 	emailer  email.Emailer
 	// Where enquiries with no branch attached are sent.
-	inbox   string
-	limiter *ratelimit.Limiter
+	inbox string
+	// businessInbox gives the contact email of the business a request acts
+	// for. Set by UseBusinessInbox.
+	businessInbox func(ctx context.Context) string
+	limiter       *ratelimit.Limiter
 }
 
 // NewService assembles the service. limiter and emailer may be nil — the
@@ -161,14 +164,20 @@ func (s *Service) notify(ctx context.Context, e *enquiriesapi.Enquiry) {
 		data[k] = v
 	}
 
-	to := s.brandInbox()
+	to := s.brandInbox(ctx)
 	if e.BranchID != nil {
 		if branch, err := s.branches.GetBranch(ctx, *e.BranchID); err == nil {
 			data["branchName"] = branch.Name
-			to = branchInbox(branch)
+			if branch.Email != nil && strings.TrimSpace(*branch.Email) != "" {
+				to = strings.TrimSpace(*branch.Email)
+			}
 		}
 	}
-	_ = s.emailer.Send(ctx, email.Email{To: to, Template: email.TemplateEnquiryReceived, Data: data})
+	if to != "" {
+		_ = s.emailer.Send(ctx, email.Email{To: to, Template: email.TemplateEnquiryReceived, Data: data})
+	} else {
+		slog.Warn("enquiry not forwarded: no store, business or ENQUIRY_INBOX address", "enquiryId", e.ID)
+	}
 
 	/*
 	 * And the person who sent it.
@@ -189,21 +198,19 @@ func (s *Service) notify(ctx context.Context, e *enquiriesapi.Enquiry) {
 	}
 }
 
-// brandInbox is where franchise and general enquiries land.
+// brandInbox is where franchise and general enquiries land: the business's
+// contact email, else the deployment's configured inbox. A store's enquiries
+// go to the store's own email when it has one.
 //
-// Configured rather than compiled in, so a deployment can point it at a
-// mailbox somebody actually reads.
-func (s *Service) brandInbox() string {
-	if strings.TrimSpace(s.inbox) != "" {
-		return s.inbox
+// Never a made-up address: one derived from a store code used to send
+// customers' messages to a mailbox nobody owned.
+func (s *Service) brandInbox(ctx context.Context) string {
+	if s.businessInbox != nil {
+		if addr := strings.TrimSpace(s.businessInbox(ctx)); addr != "" {
+			return addr
+		}
 	}
-	return "hello@bakedbouquet.com"
-}
-
-// branchInbox derives a branch's contact address from its code, matching the
-// convention head office already uses for store mailboxes.
-func branchInbox(b *franchiseapi.Branch) string {
-	return strings.ToLower(b.Code) + "@bakedbouquet.com"
+	return strings.TrimSpace(s.inbox)
 }
 
 // --- Admin queue -------------------------------------------------------------
@@ -363,3 +370,7 @@ func trimmedPtr(v string) *string {
 
 // UseBrandInbox points brand-level enquiries at a configured mailbox.
 func (s *Service) UseBrandInbox(addr string) { s.inbox = addr }
+
+// UseBusinessInbox sets how the contact email of the business a request acts
+// for is found.
+func (s *Service) UseBusinessInbox(fn func(ctx context.Context) string) { s.businessInbox = fn }

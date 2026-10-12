@@ -21,11 +21,7 @@ type RenderedEmail struct {
 // them for whatever this deployment actually runs on, so every link in every
 // template is corrected in one place rather than in each of the eleven.
 func RenderTemplate(templateAlias string, data map[string]interface{}) (*RenderedEmail, error) {
-	e, err := renderTemplate(templateAlias, data)
-	if err != nil {
-		return nil, err
-	}
-	return applyBaseURLs(e), nil
+	return RenderBranded(PlatformBrand, templateAlias, data)
 }
 
 func renderTemplate(templateAlias string, data map[string]interface{}) (*RenderedEmail, error) {
@@ -34,14 +30,14 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		otp := extractString(data, "otp")
 		expiresInMinutes := extractInt(data, "expiresInMinutes", 10)
 
-		subject := fmt.Sprintf("Reset your Baked Bouquet password - %s", otp)
+		subject := fmt.Sprintf("Reset your {{business}} password - %s", otp)
 		body := h1("Reset your password") +
-			para("We received a request to reset the password for your Baked Bouquet account. Use the one-time code below:") +
+			para("We received a request to reset the password for your {{business}} account. Use the one-time code below:") +
 			codeBox(otp, fmt.Sprintf("Valid for %d minutes", expiresInMinutes)) +
 			paraMuted("If you did not request a password reset, you can safely ignore this email &mdash; your account remains secure.")
 		htmlBody := shell(shellOptions{Title: "Reset your password"}, body)
 
-		textBody := fmt.Sprintf("Baked Bouquet - Password Reset Request\n\nUse the following one-time code to reset your password:\n\n%s\n\nThis code expires in %d minutes.\n\nIf you did not request this, please ignore this email.", otp, expiresInMinutes)
+		textBody := fmt.Sprintf("{{business}} - Password Reset Request\n\nUse the following one-time code to reset your password:\n\n%s\n\nThis code expires in %d minutes.\n\nIf you did not request this, please ignore this email.", otp, expiresInMinutes)
 
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
@@ -49,14 +45,14 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		otp := extractString(data, "otp")
 		expiresInMinutes := extractInt(data, "expiresInMinutes", 10)
 
-		subject := fmt.Sprintf("Verify your Baked Bouquet account - %s", otp)
+		subject := fmt.Sprintf("Verify your {{business}} account - %s", otp)
 		body := h1("Verify your email") +
 			para("Enter the code below to verify your email address and activate your account:") +
 			codeBox(otp, fmt.Sprintf("Valid for %d minutes", expiresInMinutes)) +
 			paraMuted("If you did not sign up for an account, you can safely ignore this email.")
 		htmlBody := shell(shellOptions{Title: "Verify your account"}, body)
 
-		textBody := fmt.Sprintf("Baked Bouquet - Verify your email\n\nYour verification code is:\n\n%s\n\nThis code expires in %d minutes.", otp, expiresInMinutes)
+		textBody := fmt.Sprintf("{{business}} - Verify your email\n\nYour verification code is:\n\n%s\n\nThis code expires in %d minutes.", otp, expiresInMinutes)
 
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
@@ -66,12 +62,12 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		if name != "" {
 			greeting = "Welcome " + name
 		}
-		subject := "Welcome to Baked Bouquet! 🎉"
+		subject := "Welcome to {{business}}! 🎉"
 		body := h1(template.HTMLEscapeString(greeting)) +
 			para("Your account is verified and ready to go. Browse our beautiful bouquets and place your first order &ndash; We can&rsquo;t wait to create something special for you") +
-			button("Start Shopping", "https://bakedbouquet.com/shop")
+			button("Start Shopping", "https://shop.invalid/shop")
 		htmlBody := shell(shellOptions{Title: "Welcome"}, body)
-		textBody := fmt.Sprintf("Baked Bouquet – %s\n\nYour account is now verified and ready to use. Visit https://bakedbouquet.com/shop to start shopping!", greeting)
+		textBody := fmt.Sprintf("{{business}} – %s\n\nYour account is now verified and ready to use. Visit https://shop.invalid/shop to start shopping!", greeting)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
 	case TemplateOrderReady:
@@ -90,7 +86,7 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 			noticeBox(`<strong style="font-weight:700;">Pickup from :</strong>&nbsp; `+where) +
 			paraMuted("Please bring your order reference "+strong(reference)+" when collecting.")
 		htmlBody := shell(shellOptions{Title: "Order Ready"}, body)
-		textBody := fmt.Sprintf("Baked Bouquet – Order Ready\n\nHi %s, your order %s is ready for pickup at %s.\n\nPlease bring your order reference %s when collecting.",
+		textBody := fmt.Sprintf("{{business}} – Order Ready\n\nHi %s, your order %s is ready for pickup at %s.\n\nPlease bring your order reference %s when collecting.",
 			recipientName, reference, branchName, reference)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
@@ -101,10 +97,10 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		body := eyebrow("Order #"+template.HTMLEscapeString(reference)) +
 			h1("Delivered!") +
 			para("Hi "+strong(recipientName)+",<br>Your order has been delivered. We hope you loved it!") +
-			paraMuted("Thank you for choosing Baked Bouquet. We&rsquo;d love to see you again soon.") +
-			button("Order Again", "https://bakedbouquet.com/shop")
+			paraMuted("Thank you for choosing {{business}}. We&rsquo;d love to see you again soon.") +
+			button("Order Again", "https://shop.invalid/shop")
 		htmlBody := shell(shellOptions{Title: "Order Delivered"}, body)
-		textBody := fmt.Sprintf("Baked Bouquet – Delivered!\n\nHi %s, your order %s has been delivered. Thank you for choosing Baked Bouquet!",
+		textBody := fmt.Sprintf("{{business}} – Delivered!\n\nHi %s, your order %s has been delivered. Thank you for choosing {{business}}!",
 			recipientName, reference)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
@@ -127,7 +123,7 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 			para(strong("Order Total :")+" "+template.HTMLEscapeString(total)) +
 			paraMuted("Log in to the staff portal to view and manage this order.")
 		htmlBody := shell(shellOptions{Title: "New Order"}, body)
-		textBody := fmt.Sprintf("Baked Bouquet – New Order\n\nReference: %s\nCustomer: %s\nScheduled: %s, %s – %s\nTotal: %s\n\nLog in to the staff portal to manage this order.",
+		textBody := fmt.Sprintf("{{business}} – New Order\n\nReference: %s\nCustomer: %s\nScheduled: %s, %s – %s\nTotal: %s\n\nLog in to the staff portal to manage this order.",
 			reference, recipientName, scheduledDate, slotStart, slotEnd, total)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
@@ -251,7 +247,7 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		subject := fmt.Sprintf("Order Confirmed – %s", reference)
 		htmlBody := shell(shellOptions{Title: "Order confirmation", HeaderRight: pill(itemsLabel + " \U0001F6D2")}, body)
 
-		textBody := fmt.Sprintf("Baked Bouquet – Order Confirmed\n\nHi %s! Your order for %s has been received and is being prepared.\n\nOrder No: %s\nScheduled: %s\n\nItems:\n%s\n%s\n\nTrack your order: %s",
+		textBody := fmt.Sprintf("{{business}} – Order Confirmed\n\nHi %s! Your order for %s has been received and is being prepared.\n\nOrder No: %s\nScheduled: %s\n\nItems:\n%s\n%s\n\nTrack your order: %s",
 			purchaserName, recipientName, reference, scheduleLine(scheduledDate, slotStart, slotEnd), itemsText, breakdownText.String(), trackingUrl)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
@@ -268,7 +264,7 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 			para("If you have any questions, Please Contact us")
 		htmlBody := shell(shellOptions{Title: "Order Updated"}, body)
 
-		textBody := fmt.Sprintf("Baked Bouquet – Order Updated\n\nHi %s,\n\nYour order %s has been updated.\n\nReason: %s\n\nIf you have questions, please contact us quoting your reference %s.",
+		textBody := fmt.Sprintf("{{business}} – Order Updated\n\nHi %s,\n\nYour order %s has been updated.\n\nReason: %s\n\nIf you have questions, please contact us quoting your reference %s.",
 			recipientName, reference, reason, reference)
 
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
@@ -291,7 +287,7 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 			para("If you believe this is an error or need help<br>Please Contact us quoting "+strong(reference))
 		htmlBody := shell(shellOptions{Title: "Order Cancelled"}, body)
 
-		textBody := fmt.Sprintf("Baked Bouquet – Order Cancelled\n\nHi %s,\n\nYour order %s has been cancelled.\n\nIf you have questions, please contact us quoting your reference %s.",
+		textBody := fmt.Sprintf("{{business}} – Order Cancelled\n\nHi %s,\n\nYour order %s has been cancelled.\n\nIf you have questions, please contact us quoting your reference %s.",
 			recipientName, reference, reference)
 
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
@@ -318,12 +314,12 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		subject := fmt.Sprintf("Pay for your order – %s", label)
 		body := eyebrow(template.HTMLEscapeString(label)) +
 			h1("Complete your payment") +
-			para(greeting+"<br>Please pay "+strong(amount)+" for your Baked Bouquet order using the secure link below.") +
+			para(greeting+"<br>Please pay "+strong(amount)+" for your {{business}} order using the secure link below.") +
 			button("Pay "+amount, url) +
 			paraMuted("This link is for this order only. If you were sent a newer link, use that one instead.")
 		htmlBody := shell(shellOptions{Title: "Complete your payment"}, body)
 
-		textBody := fmt.Sprintf("Baked Bouquet – Complete your payment\n\n%s\n\nPlease pay %s for %s here:\n%s\n\nIf you were sent a newer link, use that one instead.",
+		textBody := fmt.Sprintf("{{business}} – Complete your payment\n\n%s\n\nPlease pay %s for %s here:\n%s\n\nIf you were sent a newer link, use that one instead.",
 			plainGreeting, amount, label, url)
 
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
@@ -347,10 +343,10 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		body := h1("Thank you &mdash; we have your "+template.HTMLEscapeString(what)) +
 			para(template.HTMLEscapeString(greeting)+",<br>We have received your "+template.HTMLEscapeString(what)+" and someone will be in touch shortly. There is nothing more you need to do.") +
 			paraMuted("If you need to add anything, simply reply to this email.") +
-			paraMuted("&mdash; The Baked Bouquet team")
+			paraMuted("&mdash; The {{business}} team")
 		htmlBody := shell(shellOptions{Title: "Thank you"}, body)
 
-		textBody := fmt.Sprintf("%s,\n\nThank you — we have received your %s and someone will be in touch shortly.\n\nIf you need to add anything, just reply to this email.\n\n— The Baked Bouquet team", greeting, what)
+		textBody := fmt.Sprintf("%s,\n\nThank you — we have received your %s and someone will be in touch shortly.\n\nIf you need to add anything, just reply to this email.\n\n— The {{business}} team", greeting, what)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
 	case TemplateStaffInvite:
@@ -361,10 +357,10 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		if loginURL == "" {
 			// The console signs in at /signin. /login is a 404, which is what a
 			// new member of staff was being sent to.
-			loginURL = "https://admin.bakedbouquet.com/signin"
+			loginURL = "https://admin.invalid/signin"
 		}
 
-		subject := "You've been invited to Baked Bouquet Staff Portal"
+		subject := "You've been invited to {{business}} Staff Portal"
 		title := "Welcome to the team"
 		if firstName != "" {
 			title += ", " + template.HTMLEscapeString(firstName)
@@ -374,7 +370,7 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 			details += "<br>" + strong("Role :") + " " + template.HTMLEscapeString(role)
 		}
 		body := h1(title) +
-			para("You have been invited to join the Baked Bouquet staff portal.") +
+			para("You have been invited to join the {{business}} staff portal.") +
 			noticeBox(details) +
 			paraMuted("Use the password you were given to sign in, and change it once you are in.") +
 			button("Log In to Staff Portal", loginURL)
@@ -384,7 +380,7 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		if firstName != "" {
 			greetingText = "Hello " + firstName
 		}
-		textBody := fmt.Sprintf("Baked Bouquet – Staff Invitation\n\n%s,\n\nYou have been invited to join the Baked Bouquet staff portal.\n\nLogin: %s\nRole: %s\n\nLog in at: %s",
+		textBody := fmt.Sprintf("{{business}} – Staff Invitation\n\n%s,\n\nYou have been invited to join the {{business}} staff portal.\n\nLogin: %s\nRole: %s\n\nLog in at: %s",
 			greetingText, email, role, loginURL)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
@@ -438,7 +434,7 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		if message != "" {
 			msgText = "\n\nMessage:\n" + message
 		}
-		textBody := fmt.Sprintf("Baked Bouquet – New Enquiry\n\nType: %s%s\nName: %s\nEmail: %s%s\nID: %s%s",
+		textBody := fmt.Sprintf("{{business}} – New Enquiry\n\nType: %s%s\nName: %s\nEmail: %s%s\nID: %s%s",
 			enquiryType, branchText, name, enquiryEmail, phoneText, enquiryID, msgText)
 
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil

@@ -24,6 +24,8 @@ func TestLocateAddressUsesZipForAreaNames(t *testing.T) {
 		{"350 5th Ave, New York, NY 10118", "10118", "350 5th Ave, New York, NY 10118, 10118, USA"},
 		{"1/23 Main St", "19426", "1/23 Main St, 19426, USA"},
 	}
+	SetCountryLookup(func(context.Context) string { return "US" })
+	t.Cleanup(func() { SetCountryLookup(nil) })
 	for _, c := range cases {
 		g := &recordingGeocoder{}
 		if _, _, ok := LocateAddress(context.Background(), g, c.street, "", "", c.postcode); !ok {
@@ -32,5 +34,18 @@ func TestLocateAddressUsesZipForAreaNames(t *testing.T) {
 		if len(g.asked) == 0 || g.asked[0] != c.want {
 			t.Fatalf("%q: first query %q, want %q", c.street, g.asked, c.want)
 		}
+	}
+}
+
+// A UK business searches the UK: the postcode alone for an area, the whole
+// address for a street — and the default is the UK.
+func TestLocateAddressSearchesTheBusinesssCountry(t *testing.T) {
+	g := &recordingGeocoder{}
+	if _, _, ok := LocateAddress(context.Background(), g, "", "", "", "E1 6AN"); !ok || g.asked[0] != "E1 6AN, United Kingdom" {
+		t.Fatalf("asked %q", g.asked)
+	}
+	g = &recordingGeocoder{}
+	if _, _, ok := LocateAddress(context.Background(), g, "10 Downing Street", "London", "", "SW1A 2AA"); !ok || g.asked[0] != "10 Downing Street, London, SW1A 2AA, United Kingdom" {
+		t.Fatalf("asked %q", g.asked)
 	}
 }

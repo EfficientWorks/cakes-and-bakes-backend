@@ -24,14 +24,14 @@ type centralKitchenRequest struct {
 	Postcode   *string `json:"postcode,omitempty" example:"08820"`
 	Country    *string `json:"country,omitempty" example:"US"`
 	Phone      *string `json:"phone,omitempty" example:"7329034600"`
-	Email      *string `json:"email,omitempty" example:"eastcoastoffice@bakedbouquet.com"`
+	Email      *string `json:"email,omitempty" example:"kitchen@cakesandbakes.co.uk"`
 	Timezone   *string `json:"timezone,omitempty" example:"America/New_York"`
 	// active or inactive.
 	Status *string `json:"status,omitempty" example:"active"`
 
 	ManagerName  *string `json:"managerName,omitempty" example:"Olivia Carter"`
 	ManagerPhone *string `json:"managerPhone,omitempty" example:"7329034600"`
-	ManagerEmail *string `json:"managerEmail,omitempty" example:"olivia@bakedbouquet.com"`
+	ManagerEmail *string `json:"managerEmail,omitempty" example:"olivia@cakesandbakes.co.uk"`
 
 	// Store Assignment. Replaces the list when sent; omit to leave it.
 	BranchIDs *[]string `json:"branchIds,omitempty"`

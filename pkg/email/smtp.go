@@ -38,13 +38,13 @@ func NewSMTPEmailer(host, port, username, password, fromEmail string) *SMTPEmail
 // Send implements email.Emailer. If the Email carries a Template alias, the
 // built-in renderer is used to produce subject/HTML/text. Otherwise the
 // Email's Subject field is used with an empty body.
-func (s *SMTPEmailer) Send(_ context.Context, e Email) error {
+func (s *SMTPEmailer) Send(ctx context.Context, e Email) error {
 	subject := e.Subject
 	htmlBody := ""
 	textBody := ""
 
 	if e.Template != "" {
-		rendered, err := RenderTemplate(e.Template, e.Data)
+		rendered, err := RenderBranded(BrandFor(ctx, e), e.Template, e.Data)
 		if err != nil {
 			return fmt.Errorf("smtp emailer: render template %q: %w", e.Template, err)
 		}
@@ -75,7 +75,7 @@ func (s *SMTPEmailer) sendMail(to, subject, htmlBody, textBody string) error {
 // bodies are provided it uses multipart/alternative so mail clients can pick
 // the best representation.
 func (s *SMTPEmailer) buildMessage(to, subject, htmlBody, textBody string) string {
-	boundary := "==BakedBouquetMIMEBoundary=="
+	boundary := "==BakehouseMIMEBoundary=="
 
 	var sb strings.Builder
 

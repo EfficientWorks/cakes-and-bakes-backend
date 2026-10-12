@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Geocoder resolves a US postcode to coordinates. Nearest-branch ranking
+// Geocoder resolves a postcode, in the request's country, to coordinates. Nearest-branch ranking
 // (SF-03, SF-05) degrades gracefully without one: NoopGeocoder always
 // reports ok=false, and callers fall back to an unranked branch list rather
 // than failing the request — a missing Google Maps API key should never
@@ -49,7 +49,8 @@ type geocodeResponse struct {
 
 func (g *GoogleMapsGeocoder) Geocode(ctx context.Context, postcode string) (float64, float64, bool, error) {
 	q := url.Values{}
-	q.Set("address", postcode+", USA")
+	q.Set("address", inCountry(ctx, postcode))
+	q.Set("components", "country:"+CountryOf(ctx))
 	q.Set("key", g.apiKey)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://maps.googleapis.com/maps/api/geocode/json?"+q.Encode(), nil)

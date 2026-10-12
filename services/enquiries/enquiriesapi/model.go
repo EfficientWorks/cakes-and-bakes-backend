@@ -11,7 +11,7 @@ const (
 	// TypeCustomOrder is the "Need a Custom Order?" form: an event, a guest
 	// count and a chosen store.
 	TypeCustomOrder = "custom_order"
-	// TypeFranchise is the "Own a Baked Bouquet" enquiry, which is brand-level
+	// TypeFranchise is the "Own a franchise" enquiry, which is brand-level
 	// and never routed to a branch.
 	TypeFranchise = "franchise"
 	// TypeContact is the general contact form.

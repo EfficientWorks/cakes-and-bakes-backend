@@ -677,16 +677,17 @@ func (s *Service) sendOrderConfirmationErr(ctx context.Context, o *ordersapi.Ord
 		// Absolute, because an email has no page to be relative to. A bare
 		// "/track/BB…" was being resolved by the mail client against nothing,
 		// which is how it arrived as "http:///track/BB…".
-		"trackingUrl": email.StorefrontURL() + "/orders/" + o.Reference,
+		"trackingUrl": email.ShopLink("/orders/" + o.Reference),
 	}
 	if o.DiscountCode != nil && *o.DiscountCode != "" {
 		data["discountCode"] = *o.DiscountCode
 	}
 
 	return s.emailer.Send(ctx, email.Email{
-		To:       o.PurchaserEmail,
-		Template: email.TemplateOrderConfirmation,
-		Data:     data,
+		To:         o.PurchaserEmail,
+		Template:   email.TemplateOrderConfirmation,
+		BusinessID: businessOf(o),
+		Data:       data,
 	})
 }
 

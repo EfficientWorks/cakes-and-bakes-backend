@@ -185,17 +185,66 @@ func TestLegacyStoreKeepsFlatFee(t *testing.T) {
 	}
 }
 
-func TestNormalizeZip(t *testing.T) {
+func TestNormalizePostcode(t *testing.T) {
 	cases := map[string]string{
 		"08837":       "08837",
 		" 08837-1234": "08837",
 		"120, Chatham County, Georgia, 31408, USA": "31408",
-		"": "",
+		"":                        "",
+		"sw1a1aa":                 "SW1A 1AA",
+		" SW1A  1AA ":             "SW1A 1AA",
+		"10 Downing St, SW1A 2AA": "SW1A 2AA",
+		"e1 6an":                  "E1 6AN",
+		"sw1a 1":                  "SW1A 1",
+		"m1":                      "M1",
+		"sw":                      "SW",
 	}
 	for in, want := range cases {
-		if got := NormalizeZip(in); got != want {
-			t.Errorf("NormalizeZip(%q) = %q, want %q", in, got, want)
+		if got := NormalizePostcode(in); got != want {
+			t.Errorf("NormalizePostcode(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestPostcodeCovers(t *testing.T) {
+	cases := []struct {
+		entry, postcode string
+		want            bool
+	}{
+		{"SW1A 1AA", "sw1a1aa", true}, // the postcode
+		{"SW1A 1", "SW1A 1AA", true},  // its sector
+		{"SW1A", "SW1A 1AA", true},    // its district
+		{"SW", "SW1A 1AA", true},      // its area
+		{"S", "SW1A 1AA", false},      // a different area (Sheffield)
+		{"SW1", "SW1A 1AA", false},    // a different district
+		{"SW1A 2", "SW1A 1AA", false}, // a different sector
+		{"E1", "E14 5AB", false},      // E1 is not E14
+		{"08837", "08837-1234", true}, // US ZIPs as before
+		{"08837", "08817", false},
+	}
+	for _, c := range cases {
+		if got := PostcodeCovers(c.entry, c.postcode); got != c.want {
+			t.Errorf("PostcodeCovers(%q, %q) = %v, want %v", c.entry, c.postcode, got, c.want)
+		}
+	}
+}
+
+func TestUKDeliveryByDistrictAndMostSpecificFee(t *testing.T) {
+	b := &Branch{Name: "Wembley", Country: "GB", DeliveryZone: DeliveryZone{Type: "zip_list", Zips: []string{"HA9", "NW10 7"}}}
+	b.DeliveryPricing = DeliveryPricing{Region: RegionZip, ChargeType: ChargeByArea, ZipFees: []ZipFee{
+		{Zip: "HA9", FeeCents: 500}, {Zip: "HA9 0", FeeCents: 300},
+	}}
+	if q := b.QuoteDelivery(DeliveryQuoteInput{Postcode: "ha9 0aa"}); !q.Deliverable || q.FeeCents != 300 {
+		t.Fatalf("HA9 0AA: %+v", q)
+	}
+	if q := b.QuoteDelivery(DeliveryQuoteInput{Postcode: "HA9 8XY"}); !q.Deliverable || q.FeeCents != 500 {
+		t.Fatalf("HA9 8XY: %+v", q)
+	}
+	if q := b.QuoteDelivery(DeliveryQuoteInput{Postcode: "E1 6AN"}); q.Deliverable || !strings.Contains(q.Reason, "E1 6AN") {
+		t.Fatalf("E1 6AN should not be delivered to: %+v", q)
+	}
+	if q := b.QuoteDelivery(DeliveryQuoteInput{}); !strings.Contains(q.Reason, "postcode") {
+		t.Fatalf("missing postcode message: %q", q.Reason)
 	}
 }
 

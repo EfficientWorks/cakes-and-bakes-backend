@@ -8,6 +8,8 @@
 package enquiries
 
 import (
+	"context"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -37,6 +39,10 @@ func New(pool *pgxpool.Pool, branches franchiseapi.BranchReader, emailer email.E
 // MountPublic attaches the storefront forms and the newsletter endpoints.
 // UseBrandInbox points brand-level enquiries at a configured mailbox.
 func (m *Module) UseBrandInbox(addr string) { m.svc.UseBrandInbox(addr) }
+
+// UseBusinessInbox sends enquiries to the contact email of the business the
+// request acts for, ahead of the configured mailbox.
+func (m *Module) UseBusinessInbox(fn func(ctx context.Context) string) { m.svc.UseBusinessInbox(fn) }
 
 func (m *Module) MountPublic(r chi.Router) { api.MountPublic(r, m.handler) }
 

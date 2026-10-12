@@ -54,7 +54,7 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, amountCents int64, 
 		return nil, apperr.Validation("currency is required.")
 	}
 
-	base := s.storefrontBaseURL + safeReturnPath(returnPath)
+	base := s.shopBase(ctx) + safeReturnPath(returnPath)
 	joiner := "?"
 	if strings.Contains(base, "?") {
 		joiner = "&"

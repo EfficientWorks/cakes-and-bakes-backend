@@ -920,6 +920,9 @@ definitions:
       locale:
         example: en-GB
         type: string
+      logoUrl:
+        example: https://media.emzo.app/images/cakes-and-bakes-logo
+        type: string
       name:
         example: Cakes & Bakes
         type: string
@@ -940,6 +943,9 @@ definitions:
         example: Europe/London
         type: string
       updatedAt:
+        type: string
+      websiteUrl:
+        example: https://cakesandbakes.co.uk
         type: string
     type: object
   services_business_internal_api.countryDTO:
@@ -1021,6 +1027,9 @@ definitions:
       locale:
         example: en-GB
         type: string
+      logoUrl:
+        example: https://media.emzo.app/images/cakes-and-bakes-logo
+        type: string
       name:
         example: Cakes & Bakes
         type: string
@@ -1041,6 +1050,9 @@ definitions:
         example: Europe/London
         type: string
       updatedAt:
+        type: string
+      websiteUrl:
+        example: https://cakesandbakes.co.uk
         type: string
     type: object
   services_business_internal_api.ownerDTO:
@@ -1082,6 +1094,12 @@ definitions:
       locale:
         example: en-GB
         type: string
+      logoUrl:
+        description: |-
+          The logo on the shop, emails and invoices: an https:// image address
+          (upload one with POST /platform/media/upload-ticket).
+        example: https://media.emzo.app/images/cakes-and-bakes-logo
+        type: string
       name:
         example: Cakes & Bakes
         type: string
@@ -1098,6 +1116,44 @@ definitions:
       timezone:
         example: Europe/London
         type: string
+      websiteUrl:
+        description: Where the business's shop is served from. Email links point here.
+        example: https://cakesandbakes.co.uk
+        type: string
+    type: object
+  services_business_internal_api.shopBusinessDTO:
+    properties:
+      contactEmail:
+        type: string
+      contactPhone:
+        type: string
+      country:
+        $ref: '#/definitions/services_business_internal_api.countryDTO'
+      currency:
+        example: GBP
+        type: string
+      locale:
+        example: en-GB
+        type: string
+      logoUrl:
+        type: string
+      name:
+        example: Cakes & Bakes
+        type: string
+      slug:
+        example: cakes-and-bakes
+        type: string
+      taxMode:
+        example: inclusive
+        type: string
+      taxName:
+        example: VAT
+        type: string
+      timezone:
+        example: Europe/London
+        type: string
+      websiteUrl:
+        type: string
     type: object
   services_business_internal_api.updateBusinessRequest:
     properties:
@@ -1111,6 +1167,9 @@ definitions:
         type: number
       locale:
         type: string
+      logoUrl:
+        description: '"" removes the logo / website.'
+        type: string
       name:
         type: string
       status:
@@ -1122,6 +1181,8 @@ definitions:
       taxName:
         type: string
       timezone:
+        type: string
+      websiteUrl:
         type: string
     type: object
   services_catalog_internal_api.StorePricesRequest:
@@ -2175,10 +2236,10 @@ definitions:
         example: US
         type: string
       email:
-        example: eastcoastoffice@bakedbouquet.com
+        example: kitchen@cakesandbakes.co.uk
         type: string
       managerEmail:
-        example: olivia@bakedbouquet.com
+        example: olivia@cakesandbakes.co.uk
         type: string
       managerName:
         example: Olivia Carter
@@ -11705,6 +11766,57 @@ paths:
       summary: Change a business's settings
       tags:
       - platform
+  /platform/businesses/{businessId}/logo:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Stores the image (PNG, JPEG, WebP or AVIF, up to 10 MB; checked
+        and resized like product photos) and makes it the business's logo on its shop,
+        emails and invoices. A transparent PNG of the wordmark works best.
+      parameters:
+      - description: Business id
+        in: path
+        name: businessId
+        required: true
+        type: string
+      - description: The logo image
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_business_internal_api.businessDTO'
+              type: object
+        "400":
+          description: VALIDATION_FAILED — not an image, or too large
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "401":
+          description: UNAUTHENTICATED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "404":
+          description: NOT_FOUND
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "503":
+          description: MEDIA_NOT_CONFIGURED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - PlatformKey: []
+      summary: Upload a business's logo
+      tags:
+      - platform
   /platform/businesses/{businessId}/owner:
     post:
       consumes:
@@ -13777,6 +13889,36 @@ paths:
           schema:
             $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
       summary: List branches available for pickup
+      tags:
+      - storefront
+  /storefront/business:
+    get:
+      description: The business this shop belongs to — chosen by the X-Business header,
+        the request's Origin (the business's registered website) or the server's STOREFRONT_BUSINESS
+        — with its logo, currency, locale and country conventions. The website reads
+        it once to brand itself.
+      parameters:
+      - description: Business slug
+        in: header
+        name: X-Business
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_business_internal_api.shopBusinessDTO'
+              type: object
+        "404":
+          description: NOT_FOUND
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      summary: The shop's business
       tags:
       - storefront
   /storefront/cart:

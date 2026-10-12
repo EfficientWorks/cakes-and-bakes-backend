@@ -121,11 +121,12 @@ func (s *SendGridEmailer) Send(ctx context.Context, e Email) error {
 		return errors.New("email: no recipient")
 	}
 
+	brand := BrandFor(ctx, e)
 	subject := e.Subject
 	var htmlBody, textBody string
 
 	if e.Template != "" {
-		rendered, err := RenderTemplate(e.Template, e.Data)
+		rendered, err := RenderBranded(brand, e.Template, e.Data)
 		if err != nil {
 			return fmt.Errorf("sendgrid: render template %q: %w", e.Template, err)
 		}
@@ -149,7 +150,7 @@ func (s *SendGridEmailer) Send(ctx context.Context, e Email) error {
 		content = append(content, sendGridContent{Type: "text/plain", Value: subject})
 	}
 	if subject == "" {
-		subject = "Baked Bouquet"
+		subject = brand.Name
 	}
 
 	body, err := json.Marshal(sendGridPayload{

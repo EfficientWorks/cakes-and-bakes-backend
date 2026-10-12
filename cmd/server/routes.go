@@ -89,6 +89,7 @@ func buildRouter(
 				sf.Use(auth.OptionalCustomer(customerTokens))
 				// Live catalogue (and, signed in, own-order) updates for the website.
 				sf.Get("/events", storefrontEventsHandler(realtime.Default, customerTokens))
+				svc.business.MountStorefront(sf)
 				svc.franchise.MountStorefront(sf)
 				svc.catalog.MountStorefront(sf)
 				svc.orders.MountStorefront(sf)

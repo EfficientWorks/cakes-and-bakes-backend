@@ -1,6 +1,7 @@
 package franchiseapi
 
 import (
+	"bakehouse/pkg/country"
 	"fmt"
 	"math"
 	"sort"
@@ -142,7 +143,7 @@ func (b *Branch) QuoteDelivery(in DeliveryQuoteInput) DeliveryQuote {
 	switch p.Region {
 	case RegionRadius:
 		if in.DistanceKm == nil {
-			q.Reason = "We couldn't find that address on the map. Check the street and ZIP code."
+			q.Reason = "We couldn't find that address on the map. Check the street and " + b.postcodeLabel() + "."
 			return q
 		}
 		distInUnit = FromKm(*in.DistanceKm, p.RadiusUnit)
@@ -152,13 +153,13 @@ func (b *Branch) QuoteDelivery(in DeliveryQuoteInput) DeliveryQuote {
 			return q
 		}
 	default:
-		zip := NormalizeZip(in.Postcode)
-		if zip == "" {
-			q.Reason = "Enter a ZIP code to check delivery."
+		postcode := NormalizePostcode(in.Postcode)
+		if postcode == "" {
+			q.Reason = "Enter a " + b.postcodeLabel() + " to check delivery."
 			return q
 		}
-		if !zipInList(b.DeliveryZone.Zips, zip) {
-			q.Reason = fmt.Sprintf("%s doesn't deliver to ZIP %s.", b.Name, zip)
+		if !postcodeInList(b.DeliveryZone.Zips, postcode) {
+			q.Reason = fmt.Sprintf("%s doesn't deliver to %s.", b.Name, postcode)
 			return q
 		}
 	}
@@ -187,12 +188,8 @@ func (b *Branch) QuoteDelivery(in DeliveryQuoteInput) DeliveryQuote {
 				q.FeeCents, freeOver = applyFreeOver(band.FeeCents, band.FreeOverCents, in.SubtotalCents)
 			}
 		} else {
-			zip := NormalizeZip(in.Postcode)
-			for _, zf := range p.ZipFees {
-				if NormalizeZip(zf.Zip) == zip {
-					q.FeeCents, freeOver = applyFreeOver(zf.FeeCents, zf.FreeOverCents, in.SubtotalCents)
-					break
-				}
+			if zf, ok := feeForPostcode(p.ZipFees, in.Postcode); ok {
+				q.FeeCents, freeOver = applyFreeOver(zf.FeeCents, zf.FreeOverCents, in.SubtotalCents)
 			}
 		}
 	default:
@@ -279,31 +276,12 @@ func FromKm(km float64, unit string) float64 {
 // MilesToKm converts miles to kilometres.
 func MilesToKm(mi float64) float64 { return mi * kmPerMile }
 
-// NormalizeZip keeps the 5-digit US ZIP ("08837-1234" → "08837"); anything
-// without one is returned trimmed.
-func NormalizeZip(s string) string {
-	s = strings.TrimSpace(s)
-	digits := 0
-	for i, r := range s {
-		if r >= '0' && r <= '9' {
-			digits++
-			if digits == 5 && (i+1 == len(s) || s[i+1] < '0' || s[i+1] > '9') {
-				return s[i-4 : i+1]
-			}
-		} else {
-			digits = 0
-		}
+// postcodeLabel is what this store's country calls a postcode.
+func (b *Branch) postcodeLabel() string {
+	if p, ok := country.Lookup(b.Country); ok {
+		return strings.ToLower(p.PostcodeLabel)
 	}
-	return s
-}
-
-func zipInList(zips []string, zip string) bool {
-	for _, z := range zips {
-		if NormalizeZip(z) == zip {
-			return true
-		}
-	}
-	return false
+	return "postcode"
 }
 
 // bandFor picks the distance slot whose min–max holds the distance (the

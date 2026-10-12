@@ -10268,6 +10268,86 @@ const docTemplate = `{
                 }
             }
         },
+        "/platform/businesses/{businessId}/logo": {
+            "post": {
+                "security": [
+                    {
+                        "PlatformKey": []
+                    }
+                ],
+                "description": "Stores the image (PNG, JPEG, WebP or AVIF, up to 10 MB; checked and resized like product photos) and makes it the business's logo on its shop, emails and invoices. A transparent PNG of the wordmark works best.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "platform"
+                ],
+                "summary": "Upload a business's logo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Business id",
+                        "name": "businessId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "The logo image",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_business_internal_api.businessDTO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_FAILED — not an image, or too large",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHENTICATED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "503": {
+                        "description": "MEDIA_NOT_CONFIGURED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/platform/businesses/{businessId}/owner": {
             "post": {
                 "security": [
@@ -13458,6 +13538,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/storefront/business": {
+            "get": {
+                "description": "The business this shop belongs to — chosen by the X-Business header, the request's Origin (the business's registered website) or the server's STOREFRONT_BUSINESS — with its logo, currency, locale and country conventions. The website reads it once to brand itself.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "storefront"
+                ],
+                "summary": "The shop's business",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Business slug",
+                        "name": "X-Business",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_business_internal_api.shopBusinessDTO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/storefront/cart": {
             "get": {
                 "produces": [
@@ -16347,6 +16473,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "en-GB"
                 },
+                "logoUrl": {
+                    "type": "string",
+                    "example": "https://media.emzo.app/images/cakes-and-bakes-logo"
+                },
                 "name": {
                     "type": "string",
                     "example": "Cakes \u0026 Bakes"
@@ -16374,6 +16504,10 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
+                },
+                "websiteUrl": {
+                    "type": "string",
+                    "example": "https://cakesandbakes.co.uk"
                 }
             }
         },
@@ -16485,6 +16619,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "en-GB"
                 },
+                "logoUrl": {
+                    "type": "string",
+                    "example": "https://media.emzo.app/images/cakes-and-bakes-logo"
+                },
                 "name": {
                     "type": "string",
                     "example": "Cakes \u0026 Bakes"
@@ -16512,6 +16650,10 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
+                },
+                "websiteUrl": {
+                    "type": "string",
+                    "example": "https://cakesandbakes.co.uk"
                 }
             }
         },
@@ -16569,6 +16711,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "en-GB"
                 },
+                "logoUrl": {
+                    "description": "The logo on the shop, emails and invoices: an https:// image address\n(upload one with POST /platform/media/upload-ticket).",
+                    "type": "string",
+                    "example": "https://media.emzo.app/images/cakes-and-bakes-logo"
+                },
                 "name": {
                     "type": "string",
                     "example": "Cakes \u0026 Bakes"
@@ -16589,6 +16736,59 @@ const docTemplate = `{
                 "timezone": {
                     "type": "string",
                     "example": "Europe/London"
+                },
+                "websiteUrl": {
+                    "description": "Where the business's shop is served from. Email links point here.",
+                    "type": "string",
+                    "example": "https://cakesandbakes.co.uk"
+                }
+            }
+        },
+        "services_business_internal_api.shopBusinessDTO": {
+            "type": "object",
+            "properties": {
+                "contactEmail": {
+                    "type": "string"
+                },
+                "contactPhone": {
+                    "type": "string"
+                },
+                "country": {
+                    "$ref": "#/definitions/services_business_internal_api.countryDTO"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "GBP"
+                },
+                "locale": {
+                    "type": "string",
+                    "example": "en-GB"
+                },
+                "logoUrl": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Cakes \u0026 Bakes"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "cakes-and-bakes"
+                },
+                "taxMode": {
+                    "type": "string",
+                    "example": "inclusive"
+                },
+                "taxName": {
+                    "type": "string",
+                    "example": "VAT"
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Europe/London"
+                },
+                "websiteUrl": {
+                    "type": "string"
                 }
             }
         },
@@ -16610,6 +16810,10 @@ const docTemplate = `{
                 "locale": {
                     "type": "string"
                 },
+                "logoUrl": {
+                    "description": "\"\" removes the logo / website.",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -16625,6 +16829,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "timezone": {
+                    "type": "string"
+                },
+                "websiteUrl": {
                     "type": "string"
                 }
             }
@@ -18111,11 +18318,11 @@ const docTemplate = `{
                 },
                 "email": {
                     "type": "string",
-                    "example": "eastcoastoffice@bakedbouquet.com"
+                    "example": "kitchen@cakesandbakes.co.uk"
                 },
                 "managerEmail": {
                     "type": "string",
-                    "example": "olivia@bakedbouquet.com"
+                    "example": "olivia@cakesandbakes.co.uk"
                 },
                 "managerName": {
                     "type": "string",

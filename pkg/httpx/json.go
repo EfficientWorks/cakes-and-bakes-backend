@@ -6,9 +6,12 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"bakehouse/pkg/apperr"
 	"bakehouse/pkg/obs"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Envelope is the response shape used by every endpoint:
@@ -139,6 +142,12 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	if !ok {
 		ae = apperr.Internal(err)
 	}
+	// An id that is not a UUID names nothing: "not found", the same answer as
+	// an id that is well formed but unknown — not a 500 from the database
+	// refusing to compare it.
+	if ae.Category == apperr.CategoryInternal && isMalformedUUID(err) {
+		ae = apperr.NotFound("Not found.")
+	}
 
 	env := Envelope{
 		Success: false,
@@ -188,4 +197,11 @@ func DecodeJSON(r *http.Request, v interface{}) error {
 		return apperr.Validation("Request body is not valid JSON: " + err.Error())
 	}
 	return nil
+}
+
+// isMalformedUUID reports whether err is Postgres refusing a value as a UUID
+// (invalid_text_representation, 22P02).
+func isMalformedUUID(err error) bool {
+	var pg *pgconn.PgError
+	return errors.As(err, &pg) && pg.Code == "22P02" && strings.Contains(pg.Message, "uuid")
 }

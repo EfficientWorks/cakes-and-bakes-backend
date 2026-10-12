@@ -33,12 +33,12 @@ const linkLifetime = 24 * time.Hour
 
 // linkReturnURL is where Stripe sends the customer after paying or backing
 // out: a page on the storefront, never a URL from the request.
-func (s *Service) linkReturnURL(reference string, paid bool) string {
+func (s *Service) linkReturnURL(ctx context.Context, reference string, paid bool) string {
 	page := "/payment/cancelled"
 	if paid {
 		page = "/payment/complete"
 	}
-	return s.storefrontBaseURL + page + "?order=" + url.QueryEscape(reference)
+	return s.shopBase(ctx) + page + "?order=" + url.QueryEscape(reference)
 }
 
 // CreateLink opens a hosted payment page at Stripe and saves it.
@@ -97,8 +97,8 @@ func (s *Service) openStripeLink(ctx context.Context, in paymentsapi.CreateLinkI
 				},
 			},
 		}},
-		SuccessURL: stripe.String(s.linkReturnURL(in.Reference, true)),
-		CancelURL:  stripe.String(s.linkReturnURL(in.Reference, false)),
+		SuccessURL: stripe.String(s.linkReturnURL(ctx, in.Reference, true)),
+		CancelURL:  stripe.String(s.linkReturnURL(ctx, in.Reference, false)),
 		ExpiresAt:  stripe.Int64(time.Now().Add(linkLifetime).Unix()),
 		PaymentIntentData: &stripe.CheckoutSessionCreatePaymentIntentDataParams{
 			Description: stripe.String(statementDescription),

@@ -70,14 +70,14 @@ func renderInvoice(data map[string]interface{}) *RenderedEmail {
 	// --- subject ------------------------------------------------------------
 	// A resend gets its own subject: with the same one, Outlook and Gmail fold
 	// it into the first message's thread and it looks like nothing arrived.
-	subject := fmt.Sprintf("Invoice %s from Baked Bouquet – %s", reference, Money(total))
+	subject := fmt.Sprintf("Invoice %s from {{business}} – %s", reference, Money(total))
 	switch {
 	case status == "paid":
-		subject = fmt.Sprintf("Invoice %s – Paid – Baked Bouquet", reference)
+		subject = fmt.Sprintf("Invoice %s – Paid – {{business}}", reference)
 	case status == "void":
-		subject = fmt.Sprintf("Invoice %s – Void – Baked Bouquet", reference)
+		subject = fmt.Sprintf("Invoice %s – Void – {{business}}", reference)
 	case resend:
-		subject = fmt.Sprintf("Reminder: Invoice %s – %s due – Baked Bouquet", reference, Money(total))
+		subject = fmt.Sprintf("Reminder: Invoice %s – %s due – {{business}}", reference, Money(total))
 	}
 
 	// --- heading --------------------------------------------------------------
@@ -263,7 +263,7 @@ func renderInvoice(data map[string]interface{}) *RenderedEmail {
 
 	// --- plain text -------------------------------------------------------------
 	var t strings.Builder
-	t.WriteString(fmt.Sprintf("Baked Bouquet – Invoice %s (%s)\n", reference, strings.ToUpper(status)))
+	t.WriteString(fmt.Sprintf("{{business}} – Invoice %s (%s)\n", reference, strings.ToUpper(status)))
 	if issued != "" {
 		t.WriteString("Issued " + issued + "\n")
 	}

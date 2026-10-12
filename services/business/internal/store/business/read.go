@@ -34,6 +34,12 @@ func (r *Repo) ListBusinesses(ctx context.Context, search, status string) ([]bus
 	return out, rows.Err()
 }
 
+// GetBusinessByWebsite finds the business whose shop is served from origin
+// (scheme and host, e.g. https://cakesandbakes.co.uk).
+func (r *Repo) GetBusinessByWebsite(ctx context.Context, origin string) (*businessapi.Business, error) {
+	return scanBusiness(r.pool.QueryRow(ctx, selectBusiness+` WHERE lower(website_url) = lower($1)`, strings.TrimSpace(origin)))
+}
+
 // GetBusinessBySlug finds a business by its slug, case-insensitively.
 func (r *Repo) GetBusinessBySlug(ctx context.Context, slug string) (*businessapi.Business, error) {
 	return scanBusiness(r.pool.QueryRow(ctx, selectBusiness+` WHERE lower(slug) = lower($1)`, strings.TrimSpace(slug)))

@@ -9,6 +9,8 @@
 package payments
 
 import (
+	"context"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stripe/stripe-go/v83"
@@ -56,6 +58,10 @@ func New(pool *pgxpool.Pool, cfg Config) *Module {
 	m.handler = api.NewHandler(m.svc)
 	return m
 }
+
+// UseShopURL sets how the website of the business a request acts for is
+// found; hosted payment pages return customers there.
+func (m *Module) UseShopURL(fn func(ctx context.Context) string) { m.svc.UseShopURL(fn) }
 
 // Configured reports whether a Stripe secret key was supplied.
 func (m *Module) Configured() bool { return m.configured }

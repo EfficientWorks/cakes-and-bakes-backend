@@ -20,6 +20,9 @@ type Service struct {
 	// customer back to a URL built from this, never from the request: a
 	// caller-chosen return URL would be an open redirect.
 	storefrontBaseURL string
+	// shopURL gives the website of the business a request acts for ("" when
+	// it has none). Set by UseShopURL; nil uses storefrontBaseURL alone.
+	shopURL func(ctx context.Context) string
 
 	// Nil until UseStripe: every Stripe-backed call then answers
 	// PROVIDER_NOT_CONFIGURED instead of panicking.
@@ -41,6 +44,22 @@ const statementDescription = "Online order"
 
 func NewService(st *store.Store, storefrontBaseURL string) *Service {
 	return &Service{store: st, storefrontBaseURL: strings.TrimRight(storefrontBaseURL, "/")}
+}
+
+// UseShopURL sets how the business's own website is found, so a customer
+// paying business A's order returns to A's shop.
+func (s *Service) UseShopURL(fn func(ctx context.Context) string) { s.shopURL = fn }
+
+// shopBase is the origin a hosted payment page returns the customer to: the
+// business's registered website, else STOREFRONT_BASE_URL. Never from the
+// request — a caller-chosen origin would be an open redirect.
+func (s *Service) shopBase(ctx context.Context) string {
+	if s.shopURL != nil {
+		if site := strings.TrimRight(s.shopURL(ctx), "/"); site != "" {
+			return site
+		}
+	}
+	return s.storefrontBaseURL
 }
 
 // UseStripe connects the service to Stripe. refunds is the processor refunds

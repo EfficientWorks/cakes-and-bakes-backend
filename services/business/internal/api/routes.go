@@ -14,6 +14,7 @@ func MountPlatform(v1 chi.Router, h *Handler, platformKey string) {
 		r.Get("/businesses/{businessId}", h.GetBusiness)
 		r.Patch("/businesses/{businessId}", h.UpdateBusiness)
 		r.Post("/businesses/{businessId}/owner", h.CreateOwner)
+		r.Post("/businesses/{businessId}/logo", h.UploadLogo)
 	})
 }
 
@@ -21,4 +22,10 @@ func MountPlatform(v1 chi.Router, h *Handler, platformKey string) {
 // staff-authenticated /admin router.
 func MountAdmin(admin chi.Router, h *Handler) {
 	admin.Get("/business", h.MyBusiness)
+}
+
+// MountStorefront attaches GET /business onto the /storefront router (after
+// ResolveBusiness has chosen the business).
+func MountStorefront(sf chi.Router, h *Handler) {
+	sf.Get("/business", h.ShopBusiness)
 }

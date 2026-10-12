@@ -107,7 +107,7 @@ func (h *Handler) SubmitCustomOrder(w http.ResponseWriter, r *http.Request) {
 
 // --- Franchise ----------------------------------------------------------------
 
-// franchiseRequest mirrors the "Own a Baked Bouquet" form.
+// franchiseRequest mirrors the "Own a franchise" form.
 type franchiseRequest struct {
 	FullName           string  `json:"fullName"`
 	Email              string  `json:"email"`

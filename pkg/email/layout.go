@@ -76,12 +76,10 @@ func SetAssetBaseURL(publicBaseURL string) {
 // headerLogo is the wordmark in the purple band: the image when there is one
 // to load, otherwise the name set in type so the header never shows a broken
 // image. The alt text carries the name for clients that block images.
-func headerLogo() string {
-	if logoURL == "" {
-		return `<span style="display:inline-block;color:#ffffff;font-size:22px;line-height:1.2;font-weight:700;letter-spacing:1px;">Baked Bouquet</span>`
-	}
-	return fmt.Sprintf(`<img src="%s" width="150" alt="Baked Bouquet" style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:1px;">`, template.HTMLEscapeString(logoURL))
-}
+//
+// It is a placeholder here: applyBrand puts in the sending business's logo
+// (see logoHTML).
+func headerLogo() string { return brandLogo }
 
 // shellOptions are the few knobs a template turns on the shared layout.
 type shellOptions struct {
@@ -149,7 +147,7 @@ func shell(opts shellOptions, body string) string {
         </tr>
         <!-- footer, inside the container -->
         <tr>
-          <td align="center" bgcolor="%s" style="padding:22px 20px 24px;background-color:%s;font-size:12px;color:%s;">&copy; Baked Bouquet. All rights reserved.</td>
+          <td align="center" bgcolor="%s" style="padding:22px 20px 24px;background-color:%s;font-size:12px;color:%s;">&copy; {{business}}. All rights reserved.</td>
         </tr>
       </table>
     </td>

@@ -12,6 +12,9 @@ type Email struct {
 	Subject  string
 	Template string                 // Postmark template alias, e.g. "account-verify-otp"
 	Data     map[string]interface{} // merge variables
+	// BusinessID is the business the email is from. Empty: the business the
+	// request acts for (see BrandFor).
+	BusinessID string
 }
 
 // Emailer sends transactional email. NOT-06: transactional messages are

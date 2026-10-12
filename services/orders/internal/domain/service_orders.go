@@ -318,8 +318,9 @@ func (s *Service) sendSimpleNotice(ctx context.Context, o *ordersapi.Order, temp
 		return
 	}
 	if err := s.emailer.Send(ctx, email.Email{
-		To:       to,
-		Template: template,
+		To:         to,
+		Template:   template,
+		BusinessID: businessOf(o),
 		Data: map[string]interface{}{
 			"reference": o.Reference, "recipientName": o.RecipientFirstName + " " + o.RecipientLastName,
 			"reason": reason,
@@ -385,8 +386,9 @@ func (s *Service) setStatus(ctx context.Context, actorType string, actorID *stri
 				to := noticeEmailForOrder(o)
 				if to != "" {
 					_ = s.emailer.Send(ctx, email.Email{
-						To:       to,
-						Template: email.TemplateOrderReady,
+						To:         to,
+						Template:   email.TemplateOrderReady,
+						BusinessID: businessOf(o),
 						Data: map[string]interface{}{
 							"reference":     o.Reference,
 							"recipientName": o.RecipientFirstName + " " + o.RecipientLastName,
@@ -401,8 +403,9 @@ func (s *Service) setStatus(ctx context.Context, actorType string, actorID *stri
 				to := noticeEmailForOrder(o)
 				if to != "" {
 					_ = s.emailer.Send(ctx, email.Email{
-						To:       to,
-						Template: email.TemplateOrderDelivered,
+						To:         to,
+						Template:   email.TemplateOrderDelivered,
+						BusinessID: businessOf(o),
 						Data: map[string]interface{}{
 							"reference":     o.Reference,
 							"recipientName": o.RecipientFirstName + " " + o.RecipientLastName,
@@ -612,4 +615,14 @@ func addMinutesToTime(hhmm string, mins int) string {
 		return hhmm
 	}
 	return t.Add(time.Duration(mins) * time.Minute).Format("15:04")
+}
+
+// businessOf is the business an order's emails go out as. Set explicitly
+// rather than left to the request: some sends run from a payment webhook,
+// which acts for no business.
+func businessOf(o *ordersapi.Order) string {
+	if o == nil || o.BusinessID == nil {
+		return ""
+	}
+	return *o.BusinessID
 }

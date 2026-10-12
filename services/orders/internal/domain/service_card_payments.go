@@ -445,8 +445,9 @@ func (s *Service) emailPaymentLink(ctx context.Context, order *ordersapi.Order, 
 	}
 	name := strings.TrimSpace(order.PurchaserFirstName + " " + order.PurchaserLastName)
 	if err := s.emailer.Send(ctx, email.Email{
-		To:       link.CustomerEmail,
-		Template: email.TemplatePaymentLink,
+		To:         link.CustomerEmail,
+		Template:   email.TemplatePaymentLink,
+		BusinessID: businessOf(order),
 		Data: map[string]interface{}{
 			"reference": order.Reference, "billNo": billNoLabel(order), "customerName": name,
 			"url": link.URL, "amountCents": link.AmountCents,

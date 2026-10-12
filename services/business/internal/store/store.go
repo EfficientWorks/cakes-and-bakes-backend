@@ -22,6 +22,7 @@ func NewStore(pool *pgxpool.Pool) *Store {
 
 // Errors the domain layer names as store.X.
 var (
-	ErrNotFound  = shared.ErrNotFound
-	ErrDuplicate = shared.ErrDuplicate
+	ErrNotFound     = shared.ErrNotFound
+	ErrDuplicate    = shared.ErrDuplicate
+	ErrWebsiteTaken = shared.ErrWebsiteTaken
 )

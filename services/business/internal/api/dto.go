@@ -47,6 +47,8 @@ type businessDTO struct {
 	DefaultTaxRatePct float64 `json:"defaultTaxRatePct" example:"20"`
 	ContactEmail      *string `json:"contactEmail" example:"hello@cakesandbakes.co.uk"`
 	ContactPhone      *string `json:"contactPhone" example:"+44 20 7946 0000"`
+	LogoURL           *string `json:"logoUrl" example:"https://media.emzo.app/images/cakes-and-bakes-logo"`
+	WebsiteURL        *string `json:"websiteUrl" example:"https://cakesandbakes.co.uk"`
 	// active | suspended
 	Status    string `json:"status" example:"active"`
 	CreatedAt string `json:"createdAt"`
@@ -58,6 +60,7 @@ func toBusinessDTO(b *businessapi.Business) businessDTO {
 		ID: b.ID, Name: b.Name, Slug: b.Slug, CountryCode: b.CountryCode, Currency: b.Currency,
 		Timezone: b.Timezone, Locale: b.Locale, TaxMode: b.TaxMode, TaxName: b.TaxName,
 		DefaultTaxRatePct: b.DefaultTaxRatePct, ContactEmail: b.ContactEmail, ContactPhone: b.ContactPhone,
+		LogoURL: b.LogoURL, WebsiteURL: b.WebsiteURL,
 		Status: b.Status, CreatedAt: b.CreatedAt.Format(time.RFC3339), UpdatedAt: b.UpdatedAt.Format(time.RFC3339),
 	}
 }
@@ -80,6 +83,11 @@ type registerBusinessRequest struct {
 	TaxMode           string   `json:"taxMode,omitempty" example:"inclusive"`
 	TaxName           string   `json:"taxName,omitempty" example:"VAT"`
 	DefaultTaxRatePct *float64 `json:"defaultTaxRatePct,omitempty" example:"20"`
+	// The logo on the shop, emails and invoices: an https:// image address
+	// (upload one with POST /platform/media/upload-ticket).
+	LogoURL string `json:"logoUrl,omitempty" example:"https://media.emzo.app/images/cakes-and-bakes-logo"`
+	// Where the business's shop is served from. Email links point here.
+	WebsiteURL string `json:"websiteUrl,omitempty" example:"https://cakesandbakes.co.uk"`
 }
 
 func (r registerBusinessRequest) toModel() businessapi.NewBusiness {
@@ -87,6 +95,7 @@ func (r registerBusinessRequest) toModel() businessapi.NewBusiness {
 		Name: r.Name, Slug: r.Slug, CountryCode: r.CountryCode, ContactEmail: r.ContactEmail,
 		ContactPhone: r.ContactPhone, Currency: r.Currency, Timezone: r.Timezone, Locale: r.Locale,
 		TaxMode: r.TaxMode, TaxName: r.TaxName, DefaultTaxRatePct: r.DefaultTaxRatePct,
+		LogoURL: r.LogoURL, WebsiteURL: r.WebsiteURL,
 	}
 }
 
@@ -102,6 +111,9 @@ type updateBusinessRequest struct {
 	TaxMode           *string  `json:"taxMode,omitempty"`
 	TaxName           *string  `json:"taxName,omitempty"`
 	DefaultTaxRatePct *float64 `json:"defaultTaxRatePct,omitempty"`
+	// "" removes the logo / website.
+	LogoURL    *string `json:"logoUrl,omitempty"`
+	WebsiteURL *string `json:"websiteUrl,omitempty"`
 	// active | suspended
 	Status *string `json:"status,omitempty" example:"active"`
 }
@@ -111,6 +123,7 @@ func (r updateBusinessRequest) toModel() businessapi.BusinessPatch {
 		Name: r.Name, ContactEmail: r.ContactEmail, ContactPhone: r.ContactPhone, Currency: r.Currency,
 		Timezone: r.Timezone, Locale: r.Locale, TaxMode: r.TaxMode, TaxName: r.TaxName,
 		DefaultTaxRatePct: r.DefaultTaxRatePct, Status: r.Status,
+		LogoURL: r.LogoURL, WebsiteURL: r.WebsiteURL,
 	}
 }
 

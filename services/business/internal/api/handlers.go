@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"bakehouse/pkg/httpx"
+	"bakehouse/pkg/media"
 	"bakehouse/services/business/internal/domain"
 )
 
@@ -13,6 +14,8 @@ import (
 // the businesses that use emzo Bakehouse.
 type Handler struct {
 	svc *domain.Service
+	// media stores uploaded logos; nil until UseMedia.
+	media media.Storer
 }
 
 func NewHandler(svc *domain.Service) *Handler { return &Handler{svc: svc} }

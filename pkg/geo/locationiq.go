@@ -59,10 +59,12 @@ func NewLocationIQGeocoder(token string) *LocationIQGeocoder {
 }
 
 func (g *LocationIQGeocoder) GeocodeAddress(ctx context.Context, address string) (float64, float64, bool, error) {
-	key := strings.ToLower(strings.Join(strings.Fields(address), " "))
-	if key == "" {
+	norm := strings.ToLower(strings.Join(strings.Fields(address), " "))
+	if norm == "" {
 		return 0, 0, false, nil
 	}
+	// Per country: the same text is a different place in another one.
+	key := CountryOf(ctx) + "|" + norm
 	g.mu.Lock()
 	if c, hit := g.cache[key]; hit && time.Since(c.at) < geocodeCacheTTL {
 		g.mu.Unlock()
@@ -75,7 +77,7 @@ func (g *LocationIQGeocoder) GeocodeAddress(ctx context.Context, address string)
 	q.Set("q", address)
 	q.Set("format", "json")
 	q.Set("limit", "1")
-	q.Set("countrycodes", "us")
+	q.Set("countrycodes", strings.ToLower(CountryOf(ctx)))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.base+"?"+q.Encode(), nil)
 	if err != nil {
 		return 0, 0, false, err
@@ -138,7 +140,7 @@ func LocateAddress(ctx context.Context, g AddressGeocoder, street, city, state, 
 		return 0, 0, false
 	}
 	if pc := strings.TrimSpace(postcode); pc != "" && !hasHouseNumber(street, pc) {
-		if lat, lng, ok, err := g.GeocodeAddress(ctx, pc+", USA"); err == nil && ok {
+		if lat, lng, ok, err := g.GeocodeAddress(ctx, inCountry(ctx, pc)); err == nil && ok {
 			return lat, lng, true
 		}
 	}
@@ -149,12 +151,12 @@ func LocateAddress(ctx context.Context, g AddressGeocoder, street, city, state, 
 		}
 	}
 	if len(parts) > 1 {
-		if lat, lng, ok, err := g.GeocodeAddress(ctx, strings.Join(parts, ", ")+", USA"); err == nil && ok {
+		if lat, lng, ok, err := g.GeocodeAddress(ctx, inCountry(ctx, strings.Join(parts, ", "))); err == nil && ok {
 			return lat, lng, true
 		}
 	}
 	if pc := strings.TrimSpace(postcode); pc != "" {
-		if lat, lng, ok, err := g.GeocodeAddress(ctx, pc+", USA"); err == nil && ok {
+		if lat, lng, ok, err := g.GeocodeAddress(ctx, inCountry(ctx, pc)); err == nil && ok {
 			return lat, lng, true
 		}
 	}

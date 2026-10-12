@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"bakehouse/pkg/apperr"
+	"bakehouse/pkg/geo"
 	"bakehouse/services/orders/ordersapi"
 )
 
@@ -21,7 +22,8 @@ func (s *Service) SearchAddress(ctx context.Context, rawQuery string) ([]ordersa
 		return nil, apperr.Validation("Type at least 3 characters to search.").
 			WithFields(apperr.FieldError{Field: "q", Code: "MIN_LENGTH", Message: "At least 3 characters."})
 	}
-	norm := normaliseAddressQuery(q)
+	// Cached per country: the same words are a different place in another.
+	norm := strings.ToLower(geo.CountryOf(ctx)) + "|" + normaliseAddressQuery(q)
 
 	cached, err := s.store.GetAddressSearchCache(ctx, norm)
 	if err != nil {

@@ -25,8 +25,8 @@ var (
 // these swapped for the configured origins on the way out, which keeps the
 // template bodies readable rather than a run of format verbs.
 const (
-	storefrontPlaceholder = "https://bakedbouquet.com"
-	adminPlaceholder      = "https://admin.bakedbouquet.com"
+	storefrontPlaceholder = "https://shop.invalid"
+	adminPlaceholder      = "https://admin.invalid"
 )
 
 // SetBaseURLs points the email templates at the running front-ends.
@@ -38,6 +38,11 @@ func SetBaseURLs(storefront, admin string) {
 		adminURL = a
 	}
 }
+
+// ShopLink is a link to path on the sending business's own shop. It is
+// written against the placeholder and resolved when the email is rendered
+// (its business's website, else STOREFRONT_BASE_URL).
+func ShopLink(path string) string { return storefrontPlaceholder + path }
 
 // StorefrontURL is where a customer is sent.
 func StorefrontURL() string { return storefrontURL }
@@ -75,5 +80,6 @@ func Money(cents int64) string {
 		neg = "-"
 		cents = -cents
 	}
-	return fmt.Sprintf("%s$%d.%02d", neg, cents/100, cents%100)
+	// The symbol is filled in by applyBrand, from the business's currency.
+	return fmt.Sprintf("%s%s%d.%02d", neg, moneyMark, cents/100, cents%100)
 }

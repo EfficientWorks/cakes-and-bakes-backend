@@ -66,8 +66,16 @@ func (s *Service) RegisterBusiness(ctx context.Context, in businessapi.NewBusine
 	if err := validateSettings(b.Currency, b.Timezone, b.TaxMode, b.DefaultTaxRatePct); err != nil {
 		return nil, err
 	}
+	logo, website, err := validateBranding(in.LogoURL, in.WebsiteURL)
+	if err != nil {
+		return nil, err
+	}
+	b.LogoURL, b.WebsiteURL = nilIfBlank(logo), nilIfBlank(website)
 
 	out, err := s.store.CreateBusiness(ctx, b)
+	if errors.Is(err, store.ErrWebsiteTaken) {
+		return nil, websiteTaken()
+	}
 	if errors.Is(err, store.ErrDuplicate) {
 		return nil, apperr.New("BUSINESS_SLUG_TAKEN", apperr.CategoryConflict,
 			"Another business already uses \""+slug+"\". Choose a different slug.").
@@ -77,6 +85,15 @@ func (s *Service) RegisterBusiness(ctx context.Context, in businessapi.NewBusine
 		return nil, apperr.Internal(err)
 	}
 	return out, nil
+}
+
+// GetBusinessByWebsite finds the business whose shop is served from origin.
+func (s *Service) GetBusinessByWebsite(ctx context.Context, origin string) (*businessapi.Business, error) {
+	b, err := s.store.GetBusinessByWebsite(ctx, origin)
+	if err != nil {
+		return nil, notFoundOr(err)
+	}
+	return b, nil
 }
 
 func (s *Service) GetBusiness(ctx context.Context, id string) (*businessapi.Business, error) {
@@ -124,7 +141,22 @@ func (s *Service) UpdateBusiness(ctx context.Context, id string, p businessapi.B
 	); err != nil {
 		return nil, err
 	}
+	if p.LogoURL != nil || p.WebsiteURL != nil {
+		logo, website, err := validateBranding(pick(p.LogoURL, ""), pick(p.WebsiteURL, ""))
+		if err != nil {
+			return nil, err
+		}
+		if p.LogoURL != nil {
+			p.LogoURL = &logo
+		}
+		if p.WebsiteURL != nil {
+			p.WebsiteURL = &website
+		}
+	}
 	out, err := s.store.UpdateBusiness(ctx, id, p)
+	if errors.Is(err, store.ErrWebsiteTaken) {
+		return nil, websiteTaken()
+	}
 	if err != nil {
 		return nil, notFoundOr(err)
 	}

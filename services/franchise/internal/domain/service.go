@@ -162,7 +162,7 @@ func (s *Service) overlapWarnings(ctx context.Context, excludeBranchID string, z
 	}
 	newZips := map[string]bool{}
 	for _, z := range zone.Zips {
-		newZips[z] = true
+		newZips[franchiseapi.NormalizePostcode(z)] = true
 	}
 
 	var warnings []string
@@ -172,13 +172,13 @@ func (s *Service) overlapWarnings(ctx context.Context, excludeBranchID string, z
 		}
 		var shared []string
 		for _, z := range other.DeliveryZone.Zips {
-			if newZips[z] {
+			if newZips[franchiseapi.NormalizePostcode(z)] {
 				shared = append(shared, z)
 			}
 		}
 		if len(shared) > 0 {
 			warnings = append(warnings, fmt.Sprintf(
-				"Delivery zone overlaps with %s (%s) on ZIP(s): %s. The routing tie-break (distance, then remaining capacity, then branch code) will decide which branch fulfils an order in the overlap.",
+				"Delivery zone overlaps with %s (%s) on postcode(s): %s. The routing tie-break (distance, then remaining capacity, then branch code) will decide which branch fulfils an order in the overlap.",
 				other.Name, other.Code, strings.Join(shared, ", "),
 			))
 		}
@@ -519,7 +519,7 @@ type DeliveryCheckResult struct {
 func (s *Service) CheckDelivery(ctx context.Context, postcode, address, timeSlot string, subtotalCents int64) (*DeliveryCheckResult, error) {
 	postcode = strings.TrimSpace(postcode)
 	if postcode == "" {
-		return nil, apperr.Validation("A ZIP code is required.")
+		return nil, apperr.Validation("Enter a postcode.")
 	}
 	if subtotalCents < 0 {
 		return nil, apperr.Validation("Subtotal can't be negative.").

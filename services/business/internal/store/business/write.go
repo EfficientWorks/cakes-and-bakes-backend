@@ -12,11 +12,12 @@ import (
 func (r *Repo) CreateBusiness(ctx context.Context, b businessapi.Business) (*businessapi.Business, error) {
 	const q = `
 		INSERT INTO businesses (name, slug, country_code, currency, timezone, locale, tax_mode, tax_name,
-			default_tax_rate_pct, contact_email, contact_phone, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+			default_tax_rate_pct, contact_email, contact_phone, status, logo_url, website_url)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 		RETURNING ` + businessColumns
 	out, err := scanBusiness(r.pool.QueryRow(ctx, q, b.Name, b.Slug, b.CountryCode, b.Currency, b.Timezone,
-		b.Locale, b.TaxMode, b.TaxName, b.DefaultTaxRatePct, b.ContactEmail, b.ContactPhone, b.Status))
+		b.Locale, b.TaxMode, b.TaxName, b.DefaultTaxRatePct, b.ContactEmail, b.ContactPhone, b.Status,
+		b.LogoURL, b.WebsiteURL))
 	return out, shared.Classify(err)
 }
 
@@ -34,9 +35,13 @@ func (r *Repo) UpdateBusiness(ctx context.Context, id string, p businessapi.Busi
 			tax_name             = COALESCE($9, tax_name),
 			default_tax_rate_pct = COALESCE($10, default_tax_rate_pct),
 			status               = COALESCE($11, status),
+			-- Sent empty: removed. Not sent: kept.
+			logo_url             = CASE WHEN $12::text IS NULL THEN logo_url ELSE NULLIF($12, '') END,
+			website_url          = CASE WHEN $13::text IS NULL THEN website_url ELSE NULLIF($13, '') END,
 			updated_at           = NOW()
 		WHERE id = $1
 		RETURNING ` + businessColumns
-	return scanBusiness(r.pool.QueryRow(ctx, q, id, p.Name, p.ContactEmail, p.ContactPhone, p.Currency,
-		p.Timezone, p.Locale, p.TaxMode, p.TaxName, p.DefaultTaxRatePct, p.Status))
+	out, err := scanBusiness(r.pool.QueryRow(ctx, q, id, p.Name, p.ContactEmail, p.ContactPhone, p.Currency,
+		p.Timezone, p.Locale, p.TaxMode, p.TaxName, p.DefaultTaxRatePct, p.Status, p.LogoURL, p.WebsiteURL))
+	return out, shared.Classify(err)
 }

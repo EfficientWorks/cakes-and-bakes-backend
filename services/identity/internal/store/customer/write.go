@@ -49,7 +49,7 @@ func (s *Repo) SoftDeleteCustomer(ctx context.Context, customerID string) error 
 	cond, args := shared.BusinessCond(ctx, "business_id", []any{customerID})
 	q := `
 		UPDATE customers SET
-			email = 'deleted_' || id || '@removed.bakedbouquet.com',
+			email = 'deleted_' || id || '@removed.invalid',
 			first_name = 'Deleted', last_name = 'User', mobile_number = NULL,
 			password_hash = '', deleted_at = NOW(), updated_at = NOW()
 		WHERE id = $1` + cond

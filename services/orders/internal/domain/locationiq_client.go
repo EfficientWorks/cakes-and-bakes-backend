@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"bakehouse/pkg/geo"
 	"bakehouse/services/orders/ordersapi"
 )
 
@@ -45,9 +46,16 @@ type locationIQResult struct {
 }
 
 func (c *locationIQClient) Search(ctx context.Context, query string) ([]ordersapi.AddressResult, error) {
+	// Only the business's own country, from LocationIQ's EU region for any
+	// country but the US (UK addresses stay in Europe).
+	country := geo.CountryOf(ctx)
+	host := "eu1"
+	if country == "US" {
+		host = "us1"
+	}
 	u := fmt.Sprintf(
-		"https://us1.locationiq.com/v1/search?key=%s&q=%s&format=json&addressdetails=1&limit=5&countrycodes=us",
-		url.QueryEscape(c.accessToken), url.QueryEscape(query),
+		"https://%s.locationiq.com/v1/search?key=%s&q=%s&format=json&addressdetails=1&limit=5&countrycodes=%s",
+		host, url.QueryEscape(c.accessToken), url.QueryEscape(query), strings.ToLower(country),
 	)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
