@@ -28,6 +28,8 @@ import (
 )
 
 const (
+	// Local defaults. Outside local, SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD
+	// name the real first login instead.
 	seedEmail     = "admin@example.com"
 	seedPassword  = "ChangeMe123!"
 	seedFirstName = "Store"
@@ -47,6 +49,12 @@ func main() {
 	// to be asked for twice: once to unlock it, and once to supply a password
 	// this repository has never seen. There is deliberately no default
 	// credential outside local.
+	email := envOr("SEED_ADMIN_EMAIL", seedEmail)
+	firstName := envOr("SEED_ADMIN_FIRST_NAME", seedFirstName)
+	lastName := envOr("SEED_ADMIN_LAST_NAME", seedLastName)
+	// SEED_STORE=false creates only the login; stores are then added in admin.
+	withStore := os.Getenv("SEED_STORE") != "false"
+
 	password := seedPassword
 	if cfg.Env != config.EnvLocal {
 		if os.Getenv("SEED_ALLOW_NONLOCAL") != "true" {
@@ -87,17 +95,20 @@ func main() {
 		branchName = "[TEST] " + branchName
 	}
 
-	staffID, created, err := identitySvc.SeedSuperAdmin(ctx, seedEmail, password, seedFirstName, seedLastName)
+	staffID, created, err := identitySvc.SeedSuperAdmin(ctx, email, password, firstName, lastName)
 	if err != nil {
 		fail("create super admin", err)
 	}
 	if created {
 		fmt.Println("created super admin:")
 		fmt.Println("  id      :", staffID)
-		fmt.Println("  email   :", seedEmail)
-		fmt.Println("  password:", password)
+		fmt.Println("  email   :", email)
 	} else {
-		fmt.Printf("super admin already exists: %s (%s)\n", seedEmail, staffID)
+		fmt.Printf("super admin already exists: %s (%s)\n", email, staffID)
+	}
+	if !withStore {
+		log.Info("seed complete (no store: SEED_STORE=false)")
+		return
 	}
 
 	// Every franchise/branch write re-authorises against the caller's
@@ -105,7 +116,7 @@ func main() {
 	// than bypassing the permission check.
 	claims := &auth.StaffClaims{
 		StaffID: staffID,
-		Email:   seedEmail,
+		Email:   email,
 		RoleAssignments: []auth.RoleAssignment{
 			{Role: tenant.RoleSuperAdmin, ScopeType: tenant.ScopeBrand},
 		},
@@ -181,4 +192,11 @@ func str(s string) *string { return &s }
 func fail(what string, err error) {
 	fmt.Fprintf(os.Stderr, "%s: %v\n", what, err)
 	os.Exit(1)
+}
+
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }

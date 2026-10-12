@@ -14,7 +14,7 @@ import (
 
 func (s *Repo) GetStaffByEmail(ctx context.Context, email string) (*identityapi.StaffUser, error) {
 	const q = `
-		SELECT id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
+		SELECT id, email, password_hash, first_name, last_name, is_active, created_at, updated_at, business_id
 		FROM staff_users WHERE lower(email) = lower($1)`
 	row := s.pool.QueryRow(ctx, q, email)
 	return scanStaff(row)
@@ -22,7 +22,7 @@ func (s *Repo) GetStaffByEmail(ctx context.Context, email string) (*identityapi.
 
 func (s *Repo) GetStaffByID(ctx context.Context, id string) (*identityapi.StaffUser, error) {
 	const q = `
-		SELECT id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
+		SELECT id, email, password_hash, first_name, last_name, is_active, created_at, updated_at, business_id
 		FROM staff_users WHERE id = $1`
 	row := s.pool.QueryRow(ctx, q, id)
 	return scanStaff(row)
@@ -31,11 +31,11 @@ func (s *Repo) GetStaffByID(ctx context.Context, id string) (*identityapi.StaffU
 // StaffByID reads one account, for the session a successful passcode opens.
 func (s *Repo) StaffByID(ctx context.Context, id string) (*identityapi.StaffUser, error) {
 	const q = `
-		SELECT id, email, first_name, last_name, is_active, created_at, updated_at
+		SELECT id, email, first_name, last_name, is_active, created_at, updated_at, business_id
 		  FROM staff_users WHERE id = $1 AND deactivated_at IS NULL`
 	var u identityapi.StaffUser
 	err := s.pool.QueryRow(ctx, q, id).Scan(
-		&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.IsActive, &u.CreatedAt, &u.UpdatedAt)
+		&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.IsActive, &u.CreatedAt, &u.UpdatedAt, &u.BusinessID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, shared.ErrNotFound

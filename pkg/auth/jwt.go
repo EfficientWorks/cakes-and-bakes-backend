@@ -58,12 +58,12 @@ func (i *Issuer) ParseCustomerAccessToken(raw string) (*CustomerClaims, error) {
 // IssueStaffAccessToken signs a short-lived staff access token carrying every
 // role assignment the user holds.
 func (i *Issuer) IssueStaffAccessToken(staffID, email string, roles []RoleAssignment, ttl time.Duration) (string, time.Time, error) {
-	return i.IssueStaffAccessTokenAt(staffID, email, roles, ttl, StaffLocation{})
+	return i.IssueStaffAccessTokenAt(staffID, email, "", roles, ttl, StaffLocation{})
 }
 
 // IssueStaffAccessTokenAt is IssueStaffAccessToken for a session tied to one
 // store or central kitchen (POS / KDS).
-func (i *Issuer) IssueStaffAccessTokenAt(staffID, email string, roles []RoleAssignment, ttl time.Duration, loc StaffLocation) (string, time.Time, error) {
+func (i *Issuer) IssueStaffAccessTokenAt(staffID, email, businessID string, roles []RoleAssignment, ttl time.Duration, loc StaffLocation) (string, time.Time, error) {
 	now := time.Now()
 	exp := now.Add(ttl)
 	claims := StaffClaims{
@@ -75,6 +75,7 @@ func (i *Issuer) IssueStaffAccessTokenAt(staffID, email string, roles []RoleAssi
 		},
 		StaffID:           staffID,
 		Email:             email,
+		BusinessID:        businessID,
 		RoleAssignments:   roles,
 		LocationBranchID:  loc.BranchID,
 		LocationKitchenID: loc.KitchenID,

@@ -69,7 +69,7 @@ func (s *Service) resolveKDSLocation(ctx context.Context, businessID string) (*i
 	}
 
 	out := &identityapi.KDSLocation{
-		Type: loc.Type, BusinessID: loc.BusinessID, Name: loc.Name, Timezone: loc.Timezone,
+		Type: loc.Type, BusinessID: loc.LocationCode, Name: loc.Name, Timezone: loc.Timezone,
 		Branches: []identityapi.KDSBranchRef{},
 	}
 	var branchIDs []string
@@ -92,7 +92,7 @@ func (s *Service) resolveKDSLocation(ctx context.Context, businessID string) (*i
 	}
 	if refs, err := s.locations.ListBranchRefs(ctx, branchIDs); err == nil {
 		for _, r := range refs {
-			out.Branches = append(out.Branches, identityapi.KDSBranchRef{ID: r.ID, Name: r.Name, BusinessID: r.BusinessID})
+			out.Branches = append(out.Branches, identityapi.KDSBranchRef{ID: r.ID, Name: r.Name, BusinessID: r.LocationCode})
 		}
 	}
 	return out, nil

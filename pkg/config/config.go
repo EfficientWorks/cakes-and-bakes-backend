@@ -42,6 +42,10 @@ type Config struct {
 
 	LocationIQAccessToken string
 
+	// PlatformAPIKey unlocks /v1/platform, where the emzo team registers
+	// businesses. Empty keeps that API closed.
+	PlatformAPIKey string
+
 	// Stripe takes every card payment: the storefront's hosted checkout,
 	// POS payment links and refunds.
 	StripeSecretKey      string
@@ -154,6 +158,7 @@ func Load() Config {
 		StaffRefreshTokenTTL:  getDuration("STAFF_REFRESH_TTL", 7*24*time.Hour),
 
 		LocationIQAccessToken: getEnv("LOCATIONIQ_ACCESS_TOKEN", ""),
+		PlatformAPIKey:        getEnv("PLATFORM_API_KEY", ""),
 
 		StripeSecretKey:      getEnv("STRIPE_SECRET_KEY", ""),
 		StripePublishableKey: getEnv("STRIPE_PUBLISHABLE_KEY", ""),

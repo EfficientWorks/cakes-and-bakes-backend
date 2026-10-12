@@ -51,8 +51,13 @@ func (s *Service) CreateBranch(ctx context.Context, claims *auth.StaffClaims, b 
 	if strings.TrimSpace(b.Name) == "" || strings.TrimSpace(b.Code) == "" {
 		return nil, nil, apperr.Validation("Branch name and code are required.")
 	}
-	if b.Timezone == "" {
-		b.Timezone = "America/New_York"
+	if strings.TrimSpace(b.Timezone) == "" {
+		return nil, nil, apperr.Validation("Choose the store's timezone (for example Europe/London).").
+			WithFields(apperr.FieldError{Field: "timezone", Code: "REQUIRED", Message: "Required."})
+	}
+	// The store belongs to the business of whoever creates it.
+	if claims.BusinessID != "" {
+		b.BusinessID = &claims.BusinessID
 	}
 	if len(b.FulfilmentTypes) == 0 {
 		b.FulfilmentTypes = []string{"pickup", "delivery"}
@@ -70,8 +75,8 @@ func (s *Service) CreateBranch(ctx context.Context, claims *auth.StaffClaims, b 
 	b.OwnershipType = ownership
 
 	// A Location ID names one place: a store's cannot be a central kitchen's.
-	if b.BusinessID != nil && strings.TrimSpace(*b.BusinessID) != "" {
-		if err := s.assertBusinessIDFree(ctx, strings.TrimSpace(*b.BusinessID), "", ""); err != nil {
+	if b.LocationCode != nil && strings.TrimSpace(*b.LocationCode) != "" {
+		if err := s.assertBusinessIDFree(ctx, strings.TrimSpace(*b.LocationCode), "", ""); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -123,7 +128,7 @@ func (s *Service) CreateBranch(ctx context.Context, claims *auth.StaffClaims, b 
 	if err != nil {
 		return nil, nil, apperr.Internal(err)
 	}
-	out.BusinessID = &businessID
+	out.LocationCode = &businessID
 
 	// Both receipt kinds' print settings, at column defaults, right away —
 	// same reasoning as the business ID above: GET must never 404 just
@@ -197,6 +202,7 @@ func (s *Service) ListBranches(ctx context.Context, claims *auth.StaffClaims, st
 	if err != nil {
 		return nil, apperr.Internal(err)
 	}
+	all = onlyBusiness(all, claims)
 	if tenant.IsBrandScoped(claims) {
 		return all, nil
 	}
@@ -247,7 +253,7 @@ func (s *Service) UpdateBranch(ctx context.Context, claims *auth.StaffClaims, id
 	touchesCommercial := patch.DeliveryZone != nil || patch.DeliveryFeeCents != nil || patch.MinOrderCents != nil ||
 		patch.DeliveryPricing != nil ||
 		patch.TaxName != nil || patch.TaxRatePct != nil
-	touchesOperational := patch.Name != nil || patch.FulfilmentTypes != nil || patch.OpeningHours != nil || patch.OwnershipType != nil || patch.BusinessID != nil
+	touchesOperational := patch.Name != nil || patch.FulfilmentTypes != nil || patch.OpeningHours != nil || patch.OwnershipType != nil || patch.LocationCode != nil
 
 	if touchesCommercial && !tenant.HasPermission(claims, tenant.PermBranchCommercial) {
 		return nil, nil, apperr.New("GOVERNANCE_VIOLATION", apperr.CategoryAuthorization,
@@ -313,8 +319,8 @@ func (s *Service) UpdateBranch(ctx context.Context, claims *auth.StaffClaims, id
 		}
 		patch.OwnershipType = &ownership
 	}
-	if patch.BusinessID != nil && strings.TrimSpace(*patch.BusinessID) != "" {
-		if err := s.assertBusinessIDFree(ctx, strings.TrimSpace(*patch.BusinessID), id, ""); err != nil {
+	if patch.LocationCode != nil && strings.TrimSpace(*patch.LocationCode) != "" {
+		if err := s.assertBusinessIDFree(ctx, strings.TrimSpace(*patch.LocationCode), id, ""); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -925,4 +931,20 @@ func (s *Service) locateBranch(ctx context.Context, b *franchiseapi.Branch, forc
 	}
 	b.Latitude, b.Longitude = &lat, &lng
 	return true
+}
+
+// onlyBusiness keeps the stores of the caller's business. A caller with no
+// business (an account from before businesses existed) sees what it always
+// did.
+func onlyBusiness(branches []franchiseapi.Branch, claims *auth.StaffClaims) []franchiseapi.Branch {
+	if claims == nil || claims.BusinessID == "" {
+		return branches
+	}
+	out := make([]franchiseapi.Branch, 0, len(branches))
+	for _, b := range branches {
+		if b.BusinessID != nil && *b.BusinessID == claims.BusinessID {
+			out = append(out, b)
+		}
+	}
+	return out
 }

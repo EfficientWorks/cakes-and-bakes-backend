@@ -90,6 +90,9 @@ func (m *Module) MountAdmin(r chi.Router) { api.MountAdmin(r, m.handler) }
 // MountPOS attaches customer management onto the shared /pos router.
 func (m *Module) MountPOS(r chi.Router) { api.MountPOS(r, m.handler) }
 
+// BusinessOwners creates a registered business's first login (platform API).
+func (m *Module) BusinessOwners() identityapi.BusinessOwners { return m.svc }
+
 // SeedSuperAdmin creates a brand-scoped super admin if one does not already
 // exist, returning the existing user's id when it does. It is the only
 // write path this module exposes outside its HTTP handlers, and exists so

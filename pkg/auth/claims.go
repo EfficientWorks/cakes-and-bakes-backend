@@ -21,8 +21,11 @@ type CustomerClaims struct {
 // carries every role assignment the user holds at brand or branch scope.
 type StaffClaims struct {
 	jwt.RegisteredClaims
-	StaffID         string           `json:"sid"`
-	Email           string           `json:"email"`
+	StaffID string `json:"sid"`
+	Email   string `json:"email"`
+	// The business the staff member belongs to. Empty only on accounts
+	// created before businesses existed.
+	BusinessID      string           `json:"bid,omitempty"`
 	RoleAssignments []RoleAssignment `json:"roles"`
 	// The store or central kitchen a POS / KDS session signed in to. Empty
 	// for admin console sessions. Every POS/KDS request re-checks that this

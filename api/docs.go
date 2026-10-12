@@ -9961,6 +9961,398 @@ const docTemplate = `{
                 }
             }
         },
+        "/platform/businesses": {
+            "get": {
+                "security": [
+                    {
+                        "PlatformKey": []
+                    }
+                ],
+                "description": "Every registered business, newest first.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "platform"
+                ],
+                "summary": "List businesses",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Matches name or slug",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "active | suspended",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/services_business_internal_api.businessDTO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHENTICATED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "PlatformKey": []
+                    }
+                ],
+                "description": "Creates a business. Only name and countryCode are required: the country fills currency, timezone, locale and tax (GB: GBP, Europe/London, en-GB, VAT 20% included in prices). Next, give it a login with POST /platform/businesses/{businessId}/owner.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "platform"
+                ],
+                "summary": "Register a business",
+                "parameters": [
+                    {
+                        "description": "The business",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services_business_internal_api.registerBusinessRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_business_internal_api.businessDTO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_FAILED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHENTICATED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "BUSINESS_SLUG_TAKEN",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/platform/businesses/{businessId}": {
+            "get": {
+                "security": [
+                    {
+                        "PlatformKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "platform"
+                ],
+                "summary": "Get a business",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Business id",
+                        "name": "businessId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_business_internal_api.businessDTO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHENTICATED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "PlatformKey": []
+                    }
+                ],
+                "description": "Partial update: omitted fields keep their value. The country cannot be changed. status=suspended stops the business adding new logins.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "platform"
+                ],
+                "summary": "Change a business's settings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Business id",
+                        "name": "businessId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to change",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services_business_internal_api.updateBusinessRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_business_internal_api.businessDTO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_FAILED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHENTICATED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/platform/businesses/{businessId}/owner": {
+            "post": {
+                "security": [
+                    {
+                        "PlatformKey": []
+                    }
+                ],
+                "description": "Creates a super admin for the business. They sign in to the admin console with this email and password and set up stores, staff and the menu.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "platform"
+                ],
+                "summary": "Create the business's admin login",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Business id",
+                        "name": "businessId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The owner's login",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services_business_internal_api.createOwnerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_business_internal_api.ownerDTO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_FAILED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHENTICATED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "EMAIL_ALREADY_EXISTS",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "422": {
+                        "description": "BUSINESS_SUSPENDED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/platform/countries": {
+            "get": {
+                "security": [
+                    {
+                        "PlatformKey": []
+                    }
+                ],
+                "description": "The countries a business can be registered in, with the defaults each one gives a new business.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "platform"
+                ],
+                "summary": "Supported countries",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/services_business_internal_api.countryDTO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHENTICATED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/pos/address/search": {
             "get": {
                 "security": [
@@ -15872,6 +16264,255 @@ const docTemplate = `{
                 }
             }
         },
+        "services_business_internal_api.businessDTO": {
+            "type": "object",
+            "properties": {
+                "contactEmail": {
+                    "type": "string",
+                    "example": "hello@cakesandbakes.co.uk"
+                },
+                "contactPhone": {
+                    "type": "string",
+                    "example": "+44 20 7946 0000"
+                },
+                "countryCode": {
+                    "type": "string",
+                    "example": "GB"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "GBP"
+                },
+                "defaultTaxRatePct": {
+                    "type": "number",
+                    "example": 20
+                },
+                "id": {
+                    "type": "string",
+                    "example": "5b0c6e9e-2f0a-4c55-9d8e-1f2a3b4c5d6e"
+                },
+                "locale": {
+                    "type": "string",
+                    "example": "en-GB"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Cakes \u0026 Bakes"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "cakes-and-bakes"
+                },
+                "status": {
+                    "description": "active | suspended",
+                    "type": "string",
+                    "example": "active"
+                },
+                "taxMode": {
+                    "type": "string",
+                    "example": "inclusive"
+                },
+                "taxName": {
+                    "type": "string",
+                    "example": "VAT"
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Europe/London"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "services_business_internal_api.countryDTO": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "GB"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "GBP"
+                },
+                "distanceUnit": {
+                    "type": "string",
+                    "example": "mi"
+                },
+                "locale": {
+                    "type": "string",
+                    "example": "en-GB"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "United Kingdom"
+                },
+                "phonePrefix": {
+                    "type": "string",
+                    "example": "+44"
+                },
+                "postcodeLabel": {
+                    "type": "string",
+                    "example": "Postcode"
+                },
+                "taxMode": {
+                    "type": "string",
+                    "example": "inclusive"
+                },
+                "taxName": {
+                    "type": "string",
+                    "example": "VAT"
+                },
+                "taxRatePct": {
+                    "type": "number",
+                    "example": 20
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Europe/London"
+                }
+            }
+        },
+        "services_business_internal_api.createOwnerRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "owner@cakesandbakes.co.uk"
+                },
+                "firstName": {
+                    "type": "string",
+                    "example": "Priya"
+                },
+                "lastName": {
+                    "type": "string",
+                    "example": "Shah"
+                },
+                "password": {
+                    "description": "At least 12 characters.",
+                    "type": "string",
+                    "example": "correct-horse-battery"
+                }
+            }
+        },
+        "services_business_internal_api.ownerDTO": {
+            "type": "object",
+            "properties": {
+                "businessId": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "firstName": {
+                    "type": "string"
+                },
+                "lastName": {
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Always super_admin: the owner manages the whole business.",
+                    "type": "string",
+                    "example": "super_admin"
+                },
+                "staffId": {
+                    "type": "string"
+                }
+            }
+        },
+        "services_business_internal_api.registerBusinessRequest": {
+            "type": "object",
+            "properties": {
+                "contactEmail": {
+                    "type": "string",
+                    "example": "hello@cakesandbakes.co.uk"
+                },
+                "contactPhone": {
+                    "type": "string",
+                    "example": "+44 20 7946 0000"
+                },
+                "countryCode": {
+                    "description": "GB, US or IN.",
+                    "type": "string",
+                    "example": "GB"
+                },
+                "currency": {
+                    "description": "Overrides of the country defaults. Omit to use the default.",
+                    "type": "string",
+                    "example": "GBP"
+                },
+                "defaultTaxRatePct": {
+                    "type": "number",
+                    "example": 20
+                },
+                "locale": {
+                    "type": "string",
+                    "example": "en-GB"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Cakes \u0026 Bakes"
+                },
+                "slug": {
+                    "description": "Omitted: made from the name (\"cakes-bakes\").",
+                    "type": "string",
+                    "example": "cakes-and-bakes"
+                },
+                "taxMode": {
+                    "type": "string",
+                    "example": "inclusive"
+                },
+                "taxName": {
+                    "type": "string",
+                    "example": "VAT"
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Europe/London"
+                }
+            }
+        },
+        "services_business_internal_api.updateBusinessRequest": {
+            "type": "object",
+            "properties": {
+                "contactEmail": {
+                    "type": "string"
+                },
+                "contactPhone": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "defaultTaxRatePct": {
+                    "type": "number"
+                },
+                "locale": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "active | suspended",
+                    "type": "string",
+                    "example": "active"
+                },
+                "taxMode": {
+                    "type": "string"
+                },
+                "taxName": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                }
+            }
+        },
         "services_catalog_internal_api.StorePricesRequest": {
             "type": "object",
             "properties": {
@@ -21527,6 +22168,12 @@ const docTemplate = `{
             "description": "Bearer access token. Customer and staff are separate realms.",
             "type": "apiKey",
             "name": "Authorization",
+            "in": "header"
+        },
+        "PlatformKey": {
+            "description": "Platform API key (PLATFORM_API_KEY) for /platform: registering businesses. emzo team only.",
+            "type": "apiKey",
+            "name": "X-Platform-Key",
             "in": "header"
         }
     }

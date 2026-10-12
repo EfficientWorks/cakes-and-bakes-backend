@@ -895,6 +895,186 @@ definitions:
         example: "2026-09-16T10:33:52Z"
         type: string
     type: object
+  services_business_internal_api.businessDTO:
+    properties:
+      contactEmail:
+        example: hello@cakesandbakes.co.uk
+        type: string
+      contactPhone:
+        example: +44 20 7946 0000
+        type: string
+      countryCode:
+        example: GB
+        type: string
+      createdAt:
+        type: string
+      currency:
+        example: GBP
+        type: string
+      defaultTaxRatePct:
+        example: 20
+        type: number
+      id:
+        example: 5b0c6e9e-2f0a-4c55-9d8e-1f2a3b4c5d6e
+        type: string
+      locale:
+        example: en-GB
+        type: string
+      name:
+        example: Cakes & Bakes
+        type: string
+      slug:
+        example: cakes-and-bakes
+        type: string
+      status:
+        description: active | suspended
+        example: active
+        type: string
+      taxMode:
+        example: inclusive
+        type: string
+      taxName:
+        example: VAT
+        type: string
+      timezone:
+        example: Europe/London
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  services_business_internal_api.countryDTO:
+    properties:
+      code:
+        example: GB
+        type: string
+      currency:
+        example: GBP
+        type: string
+      distanceUnit:
+        example: mi
+        type: string
+      locale:
+        example: en-GB
+        type: string
+      name:
+        example: United Kingdom
+        type: string
+      phonePrefix:
+        example: "+44"
+        type: string
+      postcodeLabel:
+        example: Postcode
+        type: string
+      taxMode:
+        example: inclusive
+        type: string
+      taxName:
+        example: VAT
+        type: string
+      taxRatePct:
+        example: 20
+        type: number
+      timezone:
+        example: Europe/London
+        type: string
+    type: object
+  services_business_internal_api.createOwnerRequest:
+    properties:
+      email:
+        example: owner@cakesandbakes.co.uk
+        type: string
+      firstName:
+        example: Priya
+        type: string
+      lastName:
+        example: Shah
+        type: string
+      password:
+        description: At least 12 characters.
+        example: correct-horse-battery
+        type: string
+    type: object
+  services_business_internal_api.ownerDTO:
+    properties:
+      businessId:
+        type: string
+      email:
+        type: string
+      firstName:
+        type: string
+      lastName:
+        type: string
+      role:
+        description: 'Always super_admin: the owner manages the whole business.'
+        example: super_admin
+        type: string
+      staffId:
+        type: string
+    type: object
+  services_business_internal_api.registerBusinessRequest:
+    properties:
+      contactEmail:
+        example: hello@cakesandbakes.co.uk
+        type: string
+      contactPhone:
+        example: +44 20 7946 0000
+        type: string
+      countryCode:
+        description: GB, US or IN.
+        example: GB
+        type: string
+      currency:
+        description: Overrides of the country defaults. Omit to use the default.
+        example: GBP
+        type: string
+      defaultTaxRatePct:
+        example: 20
+        type: number
+      locale:
+        example: en-GB
+        type: string
+      name:
+        example: Cakes & Bakes
+        type: string
+      slug:
+        description: 'Omitted: made from the name ("cakes-bakes").'
+        example: cakes-and-bakes
+        type: string
+      taxMode:
+        example: inclusive
+        type: string
+      taxName:
+        example: VAT
+        type: string
+      timezone:
+        example: Europe/London
+        type: string
+    type: object
+  services_business_internal_api.updateBusinessRequest:
+    properties:
+      contactEmail:
+        type: string
+      contactPhone:
+        type: string
+      currency:
+        type: string
+      defaultTaxRatePct:
+        type: number
+      locale:
+        type: string
+      name:
+        type: string
+      status:
+        description: active | suspended
+        example: active
+        type: string
+      taxMode:
+        type: string
+      taxName:
+        type: string
+      timezone:
+        type: string
+    type: object
   services_catalog_internal_api.StorePricesRequest:
     properties:
       priceCents:
@@ -11290,6 +11470,244 @@ paths:
       summary: Track an order by its reference
       tags:
       - storefront
+  /platform/businesses:
+    get:
+      description: Every registered business, newest first.
+      parameters:
+      - description: Matches name or slug
+        in: query
+        name: search
+        type: string
+      - description: active | suspended
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/services_business_internal_api.businessDTO'
+                  type: array
+              type: object
+        "401":
+          description: UNAUTHENTICATED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - PlatformKey: []
+      summary: List businesses
+      tags:
+      - platform
+    post:
+      consumes:
+      - application/json
+      description: 'Creates a business. Only name and countryCode are required: the
+        country fills currency, timezone, locale and tax (GB: GBP, Europe/London,
+        en-GB, VAT 20% included in prices). Next, give it a login with POST /platform/businesses/{businessId}/owner.'
+      parameters:
+      - description: The business
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services_business_internal_api.registerBusinessRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_business_internal_api.businessDTO'
+              type: object
+        "400":
+          description: VALIDATION_FAILED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "401":
+          description: UNAUTHENTICATED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "409":
+          description: BUSINESS_SLUG_TAKEN
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - PlatformKey: []
+      summary: Register a business
+      tags:
+      - platform
+  /platform/businesses/{businessId}:
+    get:
+      parameters:
+      - description: Business id
+        in: path
+        name: businessId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_business_internal_api.businessDTO'
+              type: object
+        "401":
+          description: UNAUTHENTICATED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "404":
+          description: NOT_FOUND
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - PlatformKey: []
+      summary: Get a business
+      tags:
+      - platform
+    patch:
+      consumes:
+      - application/json
+      description: 'Partial update: omitted fields keep their value. The country cannot
+        be changed. status=suspended stops the business adding new logins.'
+      parameters:
+      - description: Business id
+        in: path
+        name: businessId
+        required: true
+        type: string
+      - description: Fields to change
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services_business_internal_api.updateBusinessRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_business_internal_api.businessDTO'
+              type: object
+        "400":
+          description: VALIDATION_FAILED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "401":
+          description: UNAUTHENTICATED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "404":
+          description: NOT_FOUND
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - PlatformKey: []
+      summary: Change a business's settings
+      tags:
+      - platform
+  /platform/businesses/{businessId}/owner:
+    post:
+      consumes:
+      - application/json
+      description: Creates a super admin for the business. They sign in to the admin
+        console with this email and password and set up stores, staff and the menu.
+      parameters:
+      - description: Business id
+        in: path
+        name: businessId
+        required: true
+        type: string
+      - description: The owner's login
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services_business_internal_api.createOwnerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_business_internal_api.ownerDTO'
+              type: object
+        "400":
+          description: VALIDATION_FAILED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "401":
+          description: UNAUTHENTICATED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "404":
+          description: NOT_FOUND
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "409":
+          description: EMAIL_ALREADY_EXISTS
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "422":
+          description: BUSINESS_SUSPENDED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - PlatformKey: []
+      summary: Create the business's admin login
+      tags:
+      - platform
+  /platform/countries:
+    get:
+      description: The countries a business can be registered in, with the defaults
+        each one gives a new business.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/services_business_internal_api.countryDTO'
+                  type: array
+              type: object
+        "401":
+          description: UNAUTHENTICATED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - PlatformKey: []
+      summary: Supported countries
+      tags:
+      - platform
   /pos/address/search:
     get:
       parameters:
@@ -14301,5 +14719,11 @@ securityDefinitions:
     description: Bearer access token. Customer and staff are separate realms.
     in: header
     name: Authorization
+    type: apiKey
+  PlatformKey:
+    description: 'Platform API key (PLATFORM_API_KEY) for /platform: registering businesses.
+      emzo team only.'
+    in: header
+    name: X-Platform-Key
     type: apiKey
 swagger: "2.0"

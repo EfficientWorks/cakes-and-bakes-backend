@@ -14,6 +14,7 @@ import (
 	"bakehouse/pkg/auth"
 	"bakehouse/pkg/media"
 	"bakehouse/services/admin"
+	"bakehouse/services/business"
 	"bakehouse/services/catalog"
 	"bakehouse/services/enquiries"
 	"bakehouse/services/franchise"
@@ -51,6 +52,7 @@ func newTestRouter(t *testing.T) *chi.Mux {
 			}),
 			payments:  paymentsSvc,
 			enquiries: enquiries.New(nil, franchiseSvc.Branches(), nil, nil),
+			business:  business.New(nil, nil, "test-platform-key"),
 			admin:     admin.New(nil),
 		},
 	)
@@ -94,6 +96,7 @@ func TestRouterMounts(t *testing.T) {
 		"/v1/webhooks/stripe",            // payments
 		"/v1/admin/integrations",         // settings page
 		"/v1/enquiries/",                 // enquiries, public forms
+		"/v1/platform/businesses",        // business, platform API
 		"/v1/newsletter/",                // enquiries, newsletter
 		"/v1/admin/enquiries",            // enquiries, admin queue
 		"/v1/storefront/product-filters", // catalog, Shop Now facets

@@ -653,7 +653,7 @@ func (s *Service) issueStaffTokenPair(ctx context.Context, u *identityapi.StaffU
 // keeps it.
 func (s *Service) issueStaffTokenPairAt(ctx context.Context, u *identityapi.StaffUser, assignments []identityapi.StaffRoleAssignment, loc auth.StaffLocation) (*auth.TokenPair, error) {
 	roles := toRoleAssignments(assignments)
-	access, exp, err := s.staffTokens.IssueStaffAccessTokenAt(u.ID, u.Email, roles, s.staffAccessTTL, loc)
+	access, exp, err := s.staffTokens.IssueStaffAccessTokenAt(u.ID, u.Email, derefString(u.BusinessID), roles, s.staffAccessTTL, loc)
 	if err != nil {
 		return nil, apperr.Internal(err)
 	}
@@ -851,7 +851,45 @@ func hasRole(claims *auth.StaffClaims, role string) bool {
 // and at that point there is nobody to have authorised it. Every request-borne
 // path must use CreateStaffUser, which enforces who may appoint whom.
 func (s *Service) CreateStaffUserAsSystem(ctx context.Context, email, password, firstName, lastName string, role identityapi.StaffRoleAssignment) (*identityapi.StaffUser, error) {
-	return s.createStaffUser(ctx, email, password, firstName, lastName, role)
+	return s.createStaffUser(ctx, "", email, password, firstName, lastName, role)
+}
+
+// CreateBusinessOwner gives a newly registered business its first login: a
+// super admin over the whole business. The platform API calls it; there is
+// no staff caller to authorise.
+func (s *Service) CreateBusinessOwner(ctx context.Context, businessID, email, password, firstName, lastName string) (*identityapi.StaffUser, error) {
+	if strings.TrimSpace(businessID) == "" {
+		return nil, apperr.Validation("A business is required.")
+	}
+	if err := validateOwnerFields(email, password, firstName, lastName); err != nil {
+		return nil, err
+	}
+	return s.createStaffUser(ctx, businessID, email, password, firstName, lastName, identityapi.StaffRoleAssignment{
+		Role:      tenant.RoleSuperAdmin,
+		ScopeType: tenant.ScopeBrand,
+	})
+}
+
+// validateOwnerFields checks the details of a business's first login, so a
+// typo is a 400 naming the field rather than an account nobody can use.
+func validateOwnerFields(email, password, firstName, lastName string) error {
+	var fields []apperr.FieldError
+	if !strings.Contains(email, "@") {
+		fields = append(fields, apperr.FieldError{Field: "email", Code: "INVALID", Message: "Enter an email address."})
+	}
+	if len(password) < 12 {
+		fields = append(fields, apperr.FieldError{Field: "password", Code: "TOO_SHORT", Message: "At least 12 characters."})
+	}
+	if strings.TrimSpace(firstName) == "" {
+		fields = append(fields, apperr.FieldError{Field: "firstName", Code: "REQUIRED", Message: "Required."})
+	}
+	if strings.TrimSpace(lastName) == "" {
+		fields = append(fields, apperr.FieldError{Field: "lastName", Code: "REQUIRED", Message: "Required."})
+	}
+	if len(fields) > 0 {
+		return apperr.Validation("Check the owner's details.").WithFields(fields...)
+	}
+	return nil
 }
 
 func (s *Service) CreateStaffUser(ctx context.Context, claims *auth.StaffClaims, email, password, firstName, lastName string, role identityapi.StaffRoleAssignment) (*identityapi.StaffUser, error) {
@@ -882,7 +920,8 @@ func (s *Service) CreateStaffUserWithPasscode(ctx context.Context, claims *auth.
 			return nil, err
 		}
 	}
-	staff, err := s.createStaffUser(ctx, email, password, firstName, lastName, role)
+	// New staff join the business of whoever adds them.
+	staff, err := s.createStaffUser(ctx, claimsBusinessID(claims), email, password, firstName, lastName, role)
 	if err != nil {
 		return nil, err
 	}
@@ -894,7 +933,7 @@ func (s *Service) CreateStaffUserWithPasscode(ctx context.Context, claims *auth.
 	return staff, nil
 }
 
-func (s *Service) createStaffUser(ctx context.Context, email, password, firstName, lastName string, role identityapi.StaffRoleAssignment) (*identityapi.StaffUser, error) {
+func (s *Service) createStaffUser(ctx context.Context, businessID, email, password, firstName, lastName string, role identityapi.StaffRoleAssignment) (*identityapi.StaffUser, error) {
 	email = normaliseEmail(email)
 	if _, err := s.store.GetStaffByEmail(ctx, email); err == nil {
 		return nil, apperr.New("EMAIL_ALREADY_EXISTS", apperr.CategoryConflict, "A staff account with this email already exists.")
@@ -917,7 +956,7 @@ func (s *Service) createStaffUser(ctx context.Context, email, password, firstNam
 	// One transaction: the account and the role that makes it usable are
 	// written together. They used to be two statements, so a rejected role
 	// left an account behind that could sign in and do nothing.
-	staff, err := s.store.CreateStaffUserWithRole(ctx, email, hash, firstName, lastName, role)
+	staff, err := s.store.CreateStaffUserWithRole(ctx, businessID, email, hash, firstName, lastName, role)
 	if err != nil {
 		return nil, apperr.Internal(err)
 	}

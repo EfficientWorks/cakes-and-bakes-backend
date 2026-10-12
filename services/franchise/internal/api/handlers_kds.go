@@ -39,7 +39,7 @@ type centralKitchenRequest struct {
 
 func (r centralKitchenRequest) toInput() franchiseapi.CentralKitchenInput {
 	return franchiseapi.CentralKitchenInput{
-		Name: r.Name, BusinessID: r.BusinessID, Street: r.Street, City: r.City, State: r.State,
+		Name: r.Name, LocationCode: r.BusinessID, Street: r.Street, City: r.City, State: r.State,
 		Postcode: r.Postcode, Country: r.Country, Phone: r.Phone, Email: r.Email, Timezone: r.Timezone,
 		Status: r.Status, ManagerName: r.ManagerName, ManagerPhone: r.ManagerPhone,
 		ManagerEmail: r.ManagerEmail, BranchIDs: r.BranchIDs,

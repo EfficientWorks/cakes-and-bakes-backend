@@ -22,12 +22,12 @@ func (s *Repo) CreateCentralKitchen(ctx context.Context, in franchiseapi.Central
 
 	var id string
 	err = tx.QueryRow(ctx, `
-		INSERT INTO central_kitchens (name, business_id, street, city, state, postcode, country,
+		INSERT INTO central_kitchens (name, location_code, street, city, state, postcode, country,
 			phone, email, timezone, status, manager_name, manager_phone, manager_email, created_by)
 		VALUES ($1,$2,$3,$4,$5,$6,COALESCE(NULLIF($7,''),'US'),$8,$9,COALESCE(NULLIF($10,''),'America/New_York'),
 			COALESCE(NULLIF($11,''),'active'),$12,$13,$14,$15)
 		RETURNING id`,
-		strings.TrimSpace(shared.Deref(in.Name)), strings.TrimSpace(shared.Deref(in.BusinessID)),
+		strings.TrimSpace(shared.Deref(in.Name)), strings.TrimSpace(shared.Deref(in.LocationCode)),
 		strings.TrimSpace(shared.Deref(in.Street)), strings.TrimSpace(shared.Deref(in.City)), strings.TrimSpace(shared.Deref(in.State)),
 		strings.TrimSpace(shared.Deref(in.Postcode)), strings.TrimSpace(shared.Deref(in.Country)),
 		shared.NilIfEmpty(strings.TrimSpace(shared.Deref(in.Phone))), shared.NilIfEmpty(strings.TrimSpace(shared.Deref(in.Email))),
@@ -64,7 +64,7 @@ func (s *Repo) UpdateCentralKitchen(ctx context.Context, id string, in franchise
 	tag, err := tx.Exec(ctx, `
 		UPDATE central_kitchens SET
 			name          = COALESCE($2, name),
-			business_id   = COALESCE($3, business_id),
+			location_code   = COALESCE($3, location_code),
 			street        = COALESCE($4, street),
 			city          = COALESCE($5, city),
 			state         = COALESCE($6, state),
@@ -79,7 +79,7 @@ func (s *Repo) UpdateCentralKitchen(ctx context.Context, id string, in franchise
 			manager_email = CASE WHEN $15::text IS NULL THEN manager_email ELSE NULLIF($15, '') END,
 			updated_at    = NOW()
 		 WHERE id = $1 AND deleted_at IS NULL`,
-		id, shared.TrimmedPtr(in.Name), shared.TrimmedPtr(in.BusinessID), shared.TrimmedPtr(in.Street), shared.TrimmedPtr(in.City),
+		id, shared.TrimmedPtr(in.Name), shared.TrimmedPtr(in.LocationCode), shared.TrimmedPtr(in.Street), shared.TrimmedPtr(in.City),
 		shared.TrimmedPtr(in.State), shared.TrimmedPtr(in.Postcode), shared.TrimmedPtr(in.Country), shared.TrimmedPtr(in.Phone),
 		shared.TrimmedPtr(in.Email), shared.TrimmedPtr(in.Timezone), shared.TrimmedPtr(in.Status),
 		shared.TrimmedPtr(in.ManagerName), shared.TrimmedPtr(in.ManagerPhone), shared.TrimmedPtr(in.ManagerEmail))

@@ -28,33 +28,33 @@ const (
 
 // CentralKitchen is one production site and the stores it serves.
 type CentralKitchen struct {
-	ID         string      `json:"id"`
-	Name       string      `json:"name"`
-	BusinessID string      `json:"businessId"`
-	Street     string      `json:"street"`
-	City       string      `json:"city"`
-	State      string      `json:"state"`
-	Postcode   string      `json:"postcode"`
-	Country    string      `json:"country"`
-	Phone      *string     `json:"phone"`
-	Email      *string     `json:"email"`
-	Timezone   string      `json:"timezone"`
-	Status     string      `json:"status"`
-	Manager    Contact     `json:"manager"`
-	BranchIDs  []string    `json:"branchIds"`
-	Branches   []BranchRef `json:"branches"`
-	CreatedAt  time.Time   `json:"createdAt"`
-	UpdatedAt  time.Time   `json:"updatedAt"`
+	ID           string      `json:"id"`
+	Name         string      `json:"name"`
+	LocationCode string      `json:"businessId"`
+	Street       string      `json:"street"`
+	City         string      `json:"city"`
+	State        string      `json:"state"`
+	Postcode     string      `json:"postcode"`
+	Country      string      `json:"country"`
+	Phone        *string     `json:"phone"`
+	Email        *string     `json:"email"`
+	Timezone     string      `json:"timezone"`
+	Status       string      `json:"status"`
+	Manager      Contact     `json:"manager"`
+	BranchIDs    []string    `json:"branchIds"`
+	Branches     []BranchRef `json:"branches"`
+	CreatedAt    time.Time   `json:"createdAt"`
+	UpdatedAt    time.Time   `json:"updatedAt"`
 }
 
 // BranchRef is the name tag of a store, for a kitchen's assignment chips.
 type BranchRef struct {
-	ID         string  `json:"id"`
-	Name       string  `json:"name"`
-	Code       string  `json:"code"`
-	BusinessID *string `json:"businessId"`
-	Status     string  `json:"status"`
-	Timezone   string  `json:"timezone"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Code         string  `json:"code"`
+	LocationCode *string `json:"businessId"`
+	Status       string  `json:"status"`
+	Timezone     string  `json:"timezone"`
 }
 
 // CentralKitchenFilter narrows the console listing.
@@ -69,7 +69,7 @@ type CentralKitchenFilter struct {
 // an edit changes only what it sends.
 type CentralKitchenInput struct {
 	Name         *string
-	BusinessID   *string
+	LocationCode *string
 	Street       *string
 	City         *string
 	State        *string
@@ -90,7 +90,7 @@ type CentralKitchenInput struct {
 type Location struct {
 	Type             string // LocationBranch | LocationCentralKitchen
 	ID               string
-	BusinessID       string
+	LocationCode     string
 	Name             string
 	Status           string
 	Timezone         string

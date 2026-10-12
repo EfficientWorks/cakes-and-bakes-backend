@@ -14,6 +14,10 @@
 //	@in							header
 //	@name						Authorization
 //	@description				Bearer access token. Customer and staff are separate realms.
+//	@securityDefinitions.apikey	PlatformKey
+//	@in							header
+//	@name						X-Platform-Key
+//	@description				Platform API key (PLATFORM_API_KEY) for /platform: registering businesses. emzo team only.
 package main
 
 import (
@@ -25,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "bakehouse/api" // generated Swagger spec, served at /docs
 	"bakehouse/pkg/audit"
 	"bakehouse/pkg/auth"
 	"bakehouse/pkg/config"
@@ -38,14 +43,13 @@ import (
 	"bakehouse/pkg/ratelimit"
 	"bakehouse/pkg/sealbox"
 	"bakehouse/services/admin"
+	"bakehouse/services/business"
 	"bakehouse/services/catalog"
 	"bakehouse/services/enquiries"
 	"bakehouse/services/franchise"
 	"bakehouse/services/identity"
 	"bakehouse/services/orders"
 	"bakehouse/services/payments"
-
-	_ "bakehouse/api" // generated Swagger spec, served at /docs
 )
 
 func main() {
@@ -260,6 +264,10 @@ func main() {
 	adminSvc.UseEmailer(emailer)
 
 	enquiriesSvc := enquiries.New(pool, franchiseSvc.Branches(), emailer, limiter)
+	businessSvc := business.New(pool, identitySvc.BusinessOwners(), cfg.PlatformAPIKey)
+	if cfg.PlatformAPIKey == "" {
+		log.Warn("PLATFORM_API_KEY not set — /v1/platform (business registration) answers 503")
+	}
 	// Brand-level enquiries need a mailbox somebody reads, not a constant.
 	enquiriesSvc.UseBrandInbox(cfg.BrandInboxEmail)
 
@@ -277,6 +285,7 @@ func main() {
 		},
 		admin:     adminSvc,
 		enquiries: enquiriesSvc,
+		business:  businessSvc,
 	})
 
 	srv := &http.Server{

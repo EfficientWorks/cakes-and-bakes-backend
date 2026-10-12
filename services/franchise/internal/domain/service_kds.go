@@ -76,7 +76,7 @@ func (s *Service) CreateCentralKitchen(ctx context.Context, claims *auth.StaffCl
 		v            *string
 	}{
 		{"name", "Corporate office name", in.Name},
-		{"businessId", "Location ID", in.BusinessID},
+		{"businessId", "Location ID", in.LocationCode},
 		{"street", "Address", in.Street},
 		{"country", "Country", in.Country},
 		{"city", "City", in.City},
@@ -114,7 +114,7 @@ func (s *Service) UpdateCentralKitchen(ctx context.Context, claims *auth.StaffCl
 		field, label string
 		v            *string
 	}{
-		{"name", "Corporate office name", in.Name}, {"businessId", "Location ID", in.BusinessID},
+		{"name", "Corporate office name", in.Name}, {"businessId", "Location ID", in.LocationCode},
 		{"street", "Address", in.Street}, {"country", "Country", in.Country}, {"city", "City", in.City},
 		{"state", "State", in.State}, {"postcode", "Zipcode", in.Postcode},
 	} {
@@ -147,8 +147,8 @@ func (s *Service) DeleteCentralKitchen(ctx context.Context, claims *auth.StaffCl
 }
 
 func (s *Service) validateKitchenInput(ctx context.Context, kitchenID string, in franchiseapi.CentralKitchenInput) error {
-	if in.BusinessID != nil {
-		code := strings.TrimSpace(*in.BusinessID)
+	if in.LocationCode != nil {
+		code := strings.TrimSpace(*in.LocationCode)
 		if !businessIDPattern.MatchString(code) {
 			return apperr.Validation("A Location ID is 2–32 letters, digits or dashes.").
 				WithFields(apperr.FieldError{Field: "businessId", Code: "INVALID", Message: "Letters, digits and dashes."})

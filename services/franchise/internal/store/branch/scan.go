@@ -18,7 +18,8 @@ func scanBranch(row pgx.Row) (*franchiseapi.Branch, error) {
 		&b.Latitude, &b.Longitude, &b.Phone, &b.Email, &b.Timezone, &hours, &b.FulfilmentTypes, &zone,
 		&b.DeliveryFeeCents, &b.MinOrderCents, &b.TaxName, &b.TaxRatePct,
 		&b.AcceptsCashOnDelivery, &b.CODMaxOrderCents, &pricing,
-		&b.CardProviders, &pickupHours, &deliveryHours, &b.SameFulfilmentHours, &b.Status, &b.EmergencyClosedOn, &b.BusinessID, &b.CreatedAt, &b.UpdatedAt)
+		&b.CardProviders, &pickupHours, &deliveryHours, &b.SameFulfilmentHours, &b.Status, &b.EmergencyClosedOn, &b.LocationCode, &b.CreatedAt, &b.UpdatedAt,
+		&b.BusinessID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, shared.ErrNotFound

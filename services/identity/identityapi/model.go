@@ -59,8 +59,11 @@ type CustomerRecipient struct {
 }
 
 type StaffUser struct {
-	ID           string
-	Email        string
+	ID    string
+	Email string
+	// The business the account belongs to. Nil only on accounts created
+	// before businesses existed.
+	BusinessID   *string
 	PasswordHash string
 	FirstName    string
 	LastName     string

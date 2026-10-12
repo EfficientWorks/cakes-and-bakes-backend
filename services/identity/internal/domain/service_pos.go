@@ -171,7 +171,7 @@ func (s *Service) ValidateBusinessID(ctx context.Context, businessID, ip string)
 				return nil, errLocationInactive()
 			}
 			return &identityapi.POSOutlet{
-				BusinessID:       loc.BusinessID,
+				BusinessID:       loc.LocationCode,
 				Name:             loc.Name,
 				Type:             franchiseapi.LocationCentralKitchen,
 				CentralKitchenID: loc.CentralKitchenID,

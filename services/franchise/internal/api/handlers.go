@@ -268,7 +268,7 @@ func branchFromRequest(req branchRequest) franchiseapi.Branch {
 		PickupHours:   req.PickupHours, DeliveryHours: req.DeliveryHours,
 		SameFulfilmentHours: req.SameFulfilmentHours == nil || *req.SameFulfilmentHours,
 		DeliveryPricing:     derefPricing(req.DeliveryPricing),
-		BusinessID:          strx.NilIfEmpty(req.BusinessID),
+		LocationCode:        strx.NilIfEmpty(req.BusinessID),
 	}
 }
 
@@ -323,7 +323,7 @@ func (req branchPatchRequest) toPatch() franchiseapi.BranchPatch {
 		Name: req.Name, Phone: req.Phone, Email: req.Email,
 		Code: req.Code, Street: req.Street, City: req.City,
 		State: req.State, Postcode: req.Postcode, Country: req.Country,
-		Timezone: req.Timezone, OwnershipType: req.OwnershipType, BusinessID: req.BusinessID, Status: req.Status,
+		Timezone: req.Timezone, OwnershipType: req.OwnershipType, LocationCode: req.BusinessID, Status: req.Status,
 		FulfilmentTypes: req.FulfilmentTypes, DeliveryZone: req.DeliveryZone,
 		DeliveryFeeCents: req.DeliveryFeeCents, MinOrderCents: req.MinOrderCents, OpeningHours: req.OpeningHours,
 		TaxName: req.TaxName, TaxRatePct: req.TaxRatePct,

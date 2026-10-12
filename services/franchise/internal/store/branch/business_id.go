@@ -21,7 +21,7 @@ import (
 func (s *Repo) EnsureBusinessID(ctx context.Context, branchID, branchCode string) (string, error) {
 	var existing *string
 	if err := s.pool.QueryRow(ctx,
-		`SELECT business_id FROM branches WHERE id = $1`, branchID).Scan(&existing); err != nil {
+		`SELECT location_code FROM branches WHERE id = $1`, branchID).Scan(&existing); err != nil {
 		return "", err
 	}
 	if existing != nil && *existing != "" {
@@ -41,12 +41,12 @@ func (s *Repo) EnsureBusinessID(ctx context.Context, branchID, branchCode string
 		candidate := fmt.Sprintf("%s-%04d", prefix, n.Int64()+1000)
 
 		tag, err := s.pool.Exec(ctx,
-			`UPDATE branches SET business_id = $2, updated_at = NOW()
-			  WHERE id = $1 AND business_id IS NULL
-			    AND NOT EXISTS (SELECT 1 FROM branches b2 WHERE b2.business_id = $2)
+			`UPDATE branches SET location_code = $2, updated_at = NOW()
+			  WHERE id = $1 AND location_code IS NULL
+			    AND NOT EXISTS (SELECT 1 FROM branches b2 WHERE b2.location_code = $2)
 			    -- A central kitchen's Location ID is off limits too (KDS).
 			    AND NOT EXISTS (SELECT 1 FROM central_kitchens ck
-			                     WHERE ck.deleted_at IS NULL AND upper(btrim(ck.business_id)) = upper($2))`,
+			                     WHERE ck.deleted_at IS NULL AND upper(btrim(ck.location_code)) = upper($2))`,
 			branchID, candidate)
 		if err != nil {
 			return "", err
@@ -57,7 +57,7 @@ func (s *Repo) EnsureBusinessID(ctx context.Context, branchID, branchCode string
 		// Either somebody else just set it, or the code was taken. Re-read
 		// before trying again: the first case is done, not a collision.
 		if err := s.pool.QueryRow(ctx,
-			`SELECT business_id FROM branches WHERE id = $1`, branchID).Scan(&existing); err != nil {
+			`SELECT location_code FROM branches WHERE id = $1`, branchID).Scan(&existing); err != nil {
 			return "", err
 		}
 		if existing != nil && *existing != "" {
@@ -86,7 +86,7 @@ func (s *Repo) BranchByBusinessID(ctx context.Context, businessID string) (strin
 	var id, name string
 	err := s.pool.QueryRow(ctx,
 		`SELECT id, name FROM branches
-		  WHERE btrim(business_id) = $1 AND status <> 'closed'`,
+		  WHERE btrim(location_code) = $1 AND status <> 'closed'`,
 		strings.TrimSpace(businessID)).Scan(&id, &name)
 	if err != nil {
 		return "", "", err

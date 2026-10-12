@@ -22,10 +22,10 @@ func (s *Repo) BusinessIDOwner(ctx context.Context, businessID, excludeBranchID,
 	var owner string
 	err := s.pool.QueryRow(ctx, `
 		SELECT 'branch' FROM branches
-		 WHERE upper(btrim(business_id)) = upper($1) AND ($2 = '' OR id::text <> $2)
+		 WHERE upper(btrim(location_code)) = upper($1) AND ($2 = '' OR id::text <> $2)
 		UNION ALL
 		SELECT 'central_kitchen' FROM central_kitchens
-		 WHERE deleted_at IS NULL AND upper(btrim(business_id)) = upper($1) AND ($3 = '' OR id::text <> $3)
+		 WHERE deleted_at IS NULL AND upper(btrim(location_code)) = upper($1) AND ($3 = '' OR id::text <> $3)
 		LIMIT 1`, code, excludeBranchID, excludeKitchenID).Scan(&owner)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
@@ -43,14 +43,14 @@ func (s *Repo) LocationByBusinessID(ctx context.Context, businessID string) (*fr
 	}
 	var loc franchiseapi.Location
 	err := s.pool.QueryRow(ctx, `
-		SELECT 'branch', id::text, COALESCE(business_id, ''), name, status, timezone
+		SELECT 'branch', id::text, COALESCE(location_code, ''), name, status, timezone
 		  FROM branches
-		 WHERE btrim(business_id) = $1 AND status <> 'closed'
+		 WHERE btrim(location_code) = $1 AND status <> 'closed'
 		UNION ALL
-		SELECT 'central_kitchen', id::text, business_id, name, status, timezone
+		SELECT 'central_kitchen', id::text, location_code, name, status, timezone
 		  FROM central_kitchens
-		 WHERE btrim(business_id) = $1 AND deleted_at IS NULL
-		LIMIT 1`, code).Scan(&loc.Type, &loc.ID, &loc.BusinessID, &loc.Name, &loc.Status, &loc.Timezone)
+		 WHERE btrim(location_code) = $1 AND deleted_at IS NULL
+		LIMIT 1`, code).Scan(&loc.Type, &loc.ID, &loc.LocationCode, &loc.Name, &loc.Status, &loc.Timezone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, shared.ErrNotFound
 	}

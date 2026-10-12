@@ -83,7 +83,7 @@ func branchDTO(b *franchiseapi.Branch) branchDTOType {
 		DeliveryHours:       b.HoursFor("delivery"),
 		SameFulfilmentHours: b.SameFulfilmentHours,
 		DeliveryPricing:     b.Pricing(),
-		Status:              b.Status, BusinessID: b.BusinessID, CreatedAt: b.CreatedAt.Format(rfc3339),
+		Status:              b.Status, BusinessID: b.LocationCode, CreatedAt: b.CreatedAt.Format(rfc3339),
 	}
 }
 

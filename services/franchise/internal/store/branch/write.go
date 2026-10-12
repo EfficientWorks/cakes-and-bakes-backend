@@ -19,17 +19,17 @@ func (s *Repo) CreateBranch(ctx context.Context, b franchiseapi.Branch) (*franch
 		INSERT INTO branches (name, code, type, ownership_type, street, city, state, postcode, country,
 			latitude, longitude, phone, email, timezone, opening_hours, fulfilment_types, delivery_zone,
 			delivery_fee_cents, min_order_cents, tax_name, tax_rate_pct,
-			accepts_cash_on_delivery, cod_max_order_cents, business_id, delivery_pricing, card_providers,
-			pickup_hours, delivery_hours, same_fulfilment_hours, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,'pending')
+			accepts_cash_on_delivery, cod_max_order_cents, location_code, delivery_pricing, card_providers,
+			pickup_hours, delivery_hours, same_fulfilment_hours, business_id, status)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,'pending')
 		RETURNING id`
 	if err := s.pool.QueryRow(ctx, q,
 		b.Name, b.Code, b.Type, b.OwnershipType, b.Street, b.City, b.State, b.Postcode, b.Country,
 		b.Latitude, b.Longitude, b.Phone, b.Email, b.Timezone, hours, b.FulfilmentTypes, zone,
 		b.DeliveryFeeCents, b.MinOrderCents, b.TaxName, b.TaxRatePct,
 		b.AcceptsCashOnDelivery, b.CODMaxOrderCents,
-		coalesceBusinessID(b.BusinessID, b.Code), pricing, cardProvidersOrDefault(b.CardProviders),
-		hoursJSON(b.PickupHours), hoursJSON(b.DeliveryHours), b.SameFulfilmentHours).Scan(&id); err != nil {
+		coalesceBusinessID(b.LocationCode, b.Code), pricing, cardProvidersOrDefault(b.CardProviders),
+		hoursJSON(b.PickupHours), hoursJSON(b.DeliveryHours), b.SameFulfilmentHours, b.BusinessID).Scan(&id); err != nil {
 		return nil, fmt.Errorf("create branch: %w", err)
 	}
 	if err := s.MapDefaultProductsAndCategories(ctx, id); err != nil {
@@ -103,8 +103,8 @@ func (s *Repo) UpdateBranch(ctx context.Context, id string, patch franchiseapi.B
 	if patch.Timezone != nil {
 		add("timezone", *patch.Timezone)
 	}
-	if patch.BusinessID != nil {
-		add("business_id", shared.NilIfEmpty(*patch.BusinessID))
+	if patch.LocationCode != nil {
+		add("location_code", shared.NilIfEmpty(*patch.LocationCode))
 	}
 	if patch.Status != nil {
 		add("status", *patch.Status)

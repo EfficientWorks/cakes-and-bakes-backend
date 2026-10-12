@@ -75,8 +75,11 @@ type DeliveryZone struct {
 }
 
 type Branch struct {
-	// BusinessID is the code a till signs in with. Null until the outlet
+	// LocationCode is the code a till signs in with. Null until the outlet
 	// has one; every outlet gets one when it is created.
+	LocationCode *string
+	// BusinessID is the business this store belongs to (businesses.id). Nil
+	// only on stores created before businesses existed.
 	BusinessID    *string
 	ID            string
 	Name          string
@@ -181,7 +184,7 @@ type BranchPatch struct {
 	// keep theirs rather than being re-parented underneath them.
 	Timezone         *string
 	OwnershipType    *string
-	BusinessID       *string
+	LocationCode     *string
 	Status           *string
 	FulfilmentTypes  *[]string
 	DeliveryZone     *DeliveryZone

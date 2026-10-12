@@ -10,6 +10,7 @@ import (
 	"bakehouse/pkg/httpx"
 	"bakehouse/pkg/realtime"
 	"bakehouse/services/admin"
+	"bakehouse/services/business"
 	"bakehouse/services/catalog"
 	"bakehouse/services/enquiries"
 	"bakehouse/services/franchise"
@@ -29,6 +30,7 @@ type services struct {
 	integrations integrationFlags
 	admin        *admin.Module
 	enquiries    *enquiries.Module
+	business     *business.Module
 }
 
 // buildRouter assembles the full route tree.
@@ -57,6 +59,9 @@ func buildRouter(
 		svc.orders.MountPublicTracking(v1)
 		svc.payments.MountWebhook(v1)
 		svc.enquiries.MountPublic(v1)
+		// The emzo team's platform API: register businesses and their owner
+		// logins. Guarded by PLATFORM_API_KEY, not by staff auth.
+		svc.business.MountPlatform(v1)
 
 		// Image serving sits on v1 rather than under /storefront: the URLs go
 		// straight into <img> tags on a public page, and no auth applies.

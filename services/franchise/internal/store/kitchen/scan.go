@@ -11,7 +11,7 @@ import (
 
 func scanCentralKitchen(row pgx.Row) (*franchiseapi.CentralKitchen, error) {
 	var ck franchiseapi.CentralKitchen
-	err := row.Scan(&ck.ID, &ck.Name, &ck.BusinessID, &ck.Street, &ck.City, &ck.State, &ck.Postcode, &ck.Country,
+	err := row.Scan(&ck.ID, &ck.Name, &ck.LocationCode, &ck.Street, &ck.City, &ck.State, &ck.Postcode, &ck.Country,
 		&ck.Phone, &ck.Email, &ck.Timezone, &ck.Status,
 		&ck.Manager.Name, &ck.Manager.Phone, &ck.Manager.Email,
 		&ck.CreatedAt, &ck.UpdatedAt)

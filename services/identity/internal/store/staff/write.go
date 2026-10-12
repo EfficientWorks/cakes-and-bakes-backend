@@ -12,7 +12,7 @@ func (s *Repo) CreateStaffUser(ctx context.Context, email, passwordHash, firstNa
 	const q = `
 		INSERT INTO staff_users (email, password_hash, first_name, last_name)
 		VALUES ($1,$2,$3,$4)
-		RETURNING id, email, password_hash, first_name, last_name, is_active, created_at, updated_at`
+		RETURNING id, email, password_hash, first_name, last_name, is_active, created_at, updated_at, business_id`
 	row := s.pool.QueryRow(ctx, q, email, passwordHash, firstName, lastName)
 	return scanStaff(row)
 }
@@ -29,7 +29,7 @@ func (s *Repo) CreateStaffUser(ctx context.Context, email, passwordHash, firstNa
 // arrive together or not at all.
 func (s *Repo) CreateStaffUserWithRole(
 	ctx context.Context,
-	email, passwordHash, firstName, lastName string,
+	businessID, email, passwordHash, firstName, lastName string,
 	role identityapi.StaffRoleAssignment,
 ) (*identityapi.StaffUser, error) {
 	tx, err := s.pool.Begin(ctx)
@@ -39,10 +39,10 @@ func (s *Repo) CreateStaffUserWithRole(
 	defer tx.Rollback(ctx)
 
 	const createUser = `
-		INSERT INTO staff_users (email, password_hash, first_name, last_name)
-		VALUES ($1,$2,$3,$4)
-		RETURNING id, email, password_hash, first_name, last_name, is_active, created_at, updated_at`
-	staff, err := scanStaff(tx.QueryRow(ctx, createUser, email, passwordHash, firstName, lastName))
+		INSERT INTO staff_users (business_id, email, password_hash, first_name, last_name)
+		VALUES ($1,$2,$3,$4,$5)
+		RETURNING id, email, password_hash, first_name, last_name, is_active, created_at, updated_at, business_id`
+	staff, err := scanStaff(tx.QueryRow(ctx, createUser, shared.NilIfBlank(businessID), email, passwordHash, firstName, lastName))
 	if err != nil {
 		return nil, fmt.Errorf("create staff user: %w", err)
 	}

@@ -40,7 +40,7 @@ func (s *Repo) ListCentralKitchens(ctx context.Context, f franchiseapi.CentralKi
 		args = append(args, "%"+term+"%")
 		i := len(args)
 		where = append(where, fmt.Sprintf(
-			"(ck.name ILIKE $%d OR ck.business_id ILIKE $%d OR ck.email ILIKE $%d OR ck.phone ILIKE $%d OR ck.manager_name ILIKE $%d)",
+			"(ck.name ILIKE $%d OR ck.location_code ILIKE $%d OR ck.email ILIKE $%d OR ck.phone ILIKE $%d OR ck.manager_name ILIKE $%d)",
 			i, i, i, i, i))
 	}
 	cond := strings.Join(where, " AND ")
@@ -128,7 +128,7 @@ func (s *Repo) ListBranchRefs(ctx context.Context, ids []string) ([]franchiseapi
 		return out, nil
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT id::text, name, code, business_id, status, timezone
+		SELECT id::text, name, code, location_code, status, timezone
 		  FROM branches WHERE id::text = ANY($1) ORDER BY name`, ids)
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (s *Repo) ListBranchRefs(ctx context.Context, ids []string) ([]franchiseapi
 	defer rows.Close()
 	for rows.Next() {
 		var r franchiseapi.BranchRef
-		if err := rows.Scan(&r.ID, &r.Name, &r.Code, &r.BusinessID, &r.Status, &r.Timezone); err != nil {
+		if err := rows.Scan(&r.ID, &r.Name, &r.Code, &r.LocationCode, &r.Status, &r.Timezone); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
