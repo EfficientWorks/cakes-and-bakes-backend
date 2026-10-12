@@ -1,0 +1,4403 @@
+{
+  "info": {
+    "_postman_id": "bb-api-collection",
+    "name": "Baked Bouquet API",
+    "description": "Backend API for the Baked Bouquet multi-branch/franchise ordering platform. Run requests top-to-bottom within a folder — each one captures IDs/tokens into environment variables that later requests reuse. Use the 'Baked Bouquet — Local' environment.\n\nDev note: local email is logged to the API process console, not actually sent (no Postmark token configured). Copy the `otp` value from the server log into the environment's `otp` variable before running Verify OTP / Verify Reset OTP.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlRoot}}/health",
+              "host": [
+                "{{baseUrlRoot}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer Auth",
+      "item": [
+        {
+          "name": "Register — Step 1 (create account)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (!pm.environment.get('customerEmail')) {",
+                  "  pm.environment.set('customerEmail', 'jane.smith+' + Date.now() + '@example.com');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('registrationToken', body.data.registrationToken);",
+                  "console.log('Check the API server console log for the OTP sent to', pm.environment.get('customerEmail'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\",\n  \"confirmPassword\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register — Step 2 (profile)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{registrationToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"mobileNumber\": \"+17325551234\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register — Step 3 (address)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "if (body.data) {",
+                  "  pm.environment.set('accessToken', body.data.accessToken);",
+                  "  pm.environment.set('refreshToken', body.data.refreshToken);",
+                  "  pm.environment.set('customerId', body.data.customerId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{registrationToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"country\": \"US\",\n  \"state\": \"NJ\",\n  \"city\": \"Edison\",\n  \"postcode\": \"08837\",\n  \"address\": \"180 Lafayette Ave\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register/address",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register",
+                "address"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "if (body.data) {",
+                  "  pm.environment.set('accessToken', body.data.accessToken);",
+                  "  pm.environment.set('refreshToken', body.data.refreshToken);",
+                  "  pm.environment.set('customerId', body.data.customer.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"otp\": \"{{otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-otp"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "resend-otp"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "if (body.data) {",
+                  "  pm.environment.set('accessToken', body.data.accessToken);",
+                  "  pm.environment.set('refreshToken', body.data.refreshToken);",
+                  "  pm.environment.set('customerId', body.data.customer.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.data) {",
+                  "  pm.environment.set('accessToken', body.data.accessToken);",
+                  "  pm.environment.set('refreshToken', body.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Reset OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.data) { pm.environment.set('resetToken', body.data.resetToken); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"otp\": \"{{otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-reset-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-reset-otp"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"resetToken\": \"{{resetToken}}\",\n  \"newPassword\": \"{{customerPassword}}\",\n  \"confirmPassword\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer Account",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/account/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"mobileNumber\": \"+17325551234\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{customerPassword}}\",\n  \"newPassword\": \"{{customerPassword}}\",\n  \"confirmPassword\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "change-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set Marketing Preference",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"optIn\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account/marketing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "marketing"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer Addresses",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Addresses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/account/addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "addresses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Address",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "if (body.data) { pm.environment.set('addressId', body.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Home\",\n  \"street\": \"180 Lafayette Ave\",\n  \"city\": \"Edison\",\n  \"state\": \"NJ\",\n  \"postcode\": \"08837\",\n  \"country\": \"US\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account/addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "addresses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Home (updated)\",\n  \"street\": \"180 Lafayette Ave\",\n  \"city\": \"Edison\",\n  \"state\": \"NJ\",\n  \"postcode\": \"08837\",\n  \"country\": \"US\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account/addresses/{{addressId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "addresses",
+                "{{addressId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set Default Address",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/account/addresses/{{addressId}}/set-default",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "addresses",
+                "{{addressId}}",
+                "set-default"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Address",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/account/addresses/{{addressId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "addresses",
+                "{{addressId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer Recipients",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Recipients",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/account/recipients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "recipients"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Recipient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "if (body.data) { pm.environment.set('recipientId', body.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Mary\",\n  \"lastName\": \"Jones\",\n  \"phone\": \"+17325559999\",\n  \"relationship\": \"Sister\",\n  \"occasionDates\": [ { \"occasion\": \"Birthday\", \"month\": 3, \"day\": 15 } ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account/recipients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "recipients"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Recipient",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Mary\",\n  \"lastName\": \"Jones-Updated\",\n  \"phone\": \"+17325559999\",\n  \"relationship\": \"Sister\",\n  \"occasionDates\": [ { \"occasion\": \"Birthday\", \"month\": 3, \"day\": 15 } ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account/recipients/{{recipientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "recipients",
+                "{{recipientId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Recipient",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/account/recipients/{{recipientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "recipients",
+                "{{recipientId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff Auth",
+      "item": [
+        {
+          "name": "Staff Login (Super Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "if (body.data) {",
+                  "  pm.environment.set('staffAccessToken', body.data.accessToken);",
+                  "  pm.environment.set('staffRefreshToken', body.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{staffEmail}}\",\n  \"password\": \"{{staffPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "description": "Run `go run ./cmd/seed` once against a fresh database to create this super admin account (admin@bakedbouquet.com / ChangeMe123!)."
+        },
+        {
+          "name": "Staff Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.data) {",
+                  "  pm.environment.set('staffAccessToken', body.data.accessToken);",
+                  "  pm.environment.set('staffRefreshToken', body.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{staffRefreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "auth",
+                "refresh"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Staff Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{staffRefreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff Management (Admin)",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Staff (Network Directory)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff?search=&role=&franchiseId=&branchId=&isActive=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "role",
+                  "value": ""
+                },
+                {
+                  "key": "franchiseId",
+                  "value": ""
+                },
+                {
+                  "key": "branchId",
+                  "value": ""
+                },
+                {
+                  "key": "isActive",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('roles array present per staff member', () => {",
+                  "  if (body.data && body.data.length) { pm.expect(body.data[0]).to.have.property('roles'); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "SA-16 network-wide staff directory. Scoped: brand roles (super admin, finance) see everyone; franchise/branch-scoped roles only see staff sharing their scope."
+        },
+        {
+          "name": "Invite Staff — Branch Manager",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (!pm.environment.get('newStaffEmail')) {",
+                  "  pm.environment.set('newStaffEmail', 'kajal+' + Date.now() + '@bakedbouquet.com');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "if (body.data) { pm.environment.set('newStaffId', body.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newStaffEmail}}\",\n  \"password\": \"{{newStaffPassword}}\",\n  \"firstName\": \"Kajal\",\n  \"lastName\": \"Singh\",\n  \"role\": \"branch_manager\",\n  \"scopeType\": \"branch\",\n  \"branchId\": \"{{placeholderBranchId}}\",\n  \"maxRefundCents\": 10000,\n  \"maxDiscountPct\": 20,\n  \"orderVoidWindowMins\": 30\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff/invite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff",
+                "invite"
+              ]
+            }
+          },
+          "description": "branchId is a placeholder UUID until the tenancy module (franchises/branches) ships — the FK constraint is added then, so any UUID works today."
+        },
+        {
+          "name": "Invite Staff — Kitchen Role (permission denied example)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403 when caller lacks staff.manage', () => {",
+                  "  pm.expect([201,403,409]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"kitchen1@bakedbouquet.com\",\n  \"password\": \"KitchenPass1!\",\n  \"firstName\": \"Kitchen\",\n  \"lastName\": \"Staff\",\n  \"role\": \"kitchen\",\n  \"scopeType\": \"branch\",\n  \"branchId\": \"{{placeholderBranchId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff/invite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff",
+                "invite"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Deactivate Staff",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff/{{newStaffId}}/deactivate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff",
+                "{{newStaffId}}",
+                "deactivate"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenancy — Franchises",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Create Franchise",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "if (body.data) { pm.environment.set('franchiseId', body.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Company-Owned NJ\",\n  \"legalEntity\": \"Baked Bouquet LLC\",\n  \"primaryContact\": { \"name\": \"Muthu\", \"email\": \"muthu@bakedbouquet.com\", \"phone\": \"732-903-4600\" },\n  \"isCompanyOwned\": true,\n  \"commercialTerms\": { \"royaltyRate\": 0.06, \"feeBasis\": \"revenue\", \"paymentTerms\": \"monthly\" }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/franchises",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "franchises"
+              ]
+            }
+          },
+          "description": "Requires super_admin (franchise.manage)."
+        },
+        {
+          "name": "List Franchises",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/franchises",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "franchises"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Franchise",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/franchises/{{franchiseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "franchises",
+                "{{franchiseId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Franchise",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Company-Owned NJ\",\n  \"legalEntity\": \"Baked Bouquet LLC\",\n  \"primaryContact\": { \"name\": \"Muthu\", \"email\": \"muthu@bakedbouquet.com\", \"phone\": \"732-903-4600\" },\n  \"isCompanyOwned\": true,\n  \"territory\": \"New Jersey\",\n  \"commercialTerms\": { \"royaltyRate\": 0.06, \"feeBasis\": \"revenue\", \"paymentTerms\": \"monthly\" }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/franchises/{{franchiseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "franchises",
+                "{{franchiseId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Suspend Franchise",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Contract under review\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/franchises/{{franchiseId}}/suspend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "franchises",
+                "{{franchiseId}}",
+                "suspend"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reactivate Franchise",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/franchises/{{franchiseId}}/reactivate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "franchises",
+                "{{franchiseId}}",
+                "reactivate"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenancy — Branches",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Create Branch — Edison NJ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "if (body.data && body.data.branch) { pm.environment.set('branchId', body.data.branch.id); }",
+                  "console.log('warnings:', body.data && body.data.warnings);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"franchiseId\": \"{{franchiseId}}\",\n  \"name\": \"Edison, NJ\",\n  \"code\": \"EDISON-NJ\",\n  \"street\": \"180 Lafayette Ave\",\n  \"city\": \"Edison\",\n  \"state\": \"NJ\",\n  \"postcode\": \"08837\",\n  \"latitude\": 40.5187,\n  \"longitude\": -74.4121,\n  \"timezone\": \"America/New_York\",\n  \"fulfilmentTypes\": [\"pickup\", \"delivery\"],\n  \"deliveryZone\": { \"type\": \"zip_list\", \"zips\": [\"08837\", \"08820\", \"08830\"] },\n  \"deliveryFeeCents\": 2500,\n  \"minOrderCents\": 5000,\n  \"taxState\": \"NJ\",\n  \"taxRatePct\": 0.06625,\n  \"openingHours\": [\n    { \"day\": \"monday\", \"open\": \"09:00\", \"close\": \"18:00\" },\n    { \"day\": \"tuesday\", \"open\": \"09:00\", \"close\": \"18:00\" },\n    { \"day\": \"wednesday\", \"open\": \"09:00\", \"close\": \"18:00\" },\n    { \"day\": \"thursday\", \"open\": \"09:00\", \"close\": \"18:00\" },\n    { \"day\": \"friday\", \"open\": \"09:00\", \"close\": \"18:00\" },\n    { \"day\": \"saturday\", \"open\": \"10:00\", \"close\": \"16:00\" },\n    { \"day\": \"sunday\", \"open\": null, \"close\": null }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches"
+              ]
+            }
+          },
+          "description": "Requires super_admin or franchise_owner. Run 'Create Franchise' first so {{franchiseId}} is set. New branches go straight to status=active (GOV-05/NFR-14)."
+        },
+        {
+          "name": "Create Branch — Trappe PA (zone overlap example)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.branch) { pm.environment.set('secondBranchId', body.data.branch.id); }",
+                  "pm.test('overlap warning present', () => {",
+                  "  pm.expect(body.data.warnings && body.data.warnings.length).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"franchiseId\": \"{{franchiseId}}\",\n  \"name\": \"Trappe, PA\",\n  \"code\": \"TRAPPE-PA\",\n  \"street\": \"730 W Main St\",\n  \"city\": \"Trappe\",\n  \"state\": \"PA\",\n  \"postcode\": \"19426\",\n  \"timezone\": \"America/New_York\",\n  \"deliveryZone\": { \"type\": \"zip_list\", \"zips\": [\"19426\", \"08837\"] }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches"
+              ]
+            }
+          },
+          "description": "Shares ZIP 08837 with Edison NJ on purpose — demonstrates the GOV-08 overlap warning (non-blocking)."
+        },
+        {
+          "name": "List Branches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches?franchiseId={{franchiseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches"
+              ],
+              "query": [
+                {
+                  "key": "franchiseId",
+                  "value": "{{franchiseId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Branch",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Branch — Operational Field (name)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Edison, NJ (Flagship)\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}"
+              ]
+            }
+          },
+          "description": "Allowed for branch_manager and above (PermBranchOperational)."
+        },
+        {
+          "name": "Update Branch — Commercial Field (delivery fee)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deliveryFeeCents\": 3000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}"
+              ]
+            }
+          },
+          "description": "Requires super_admin or franchise_owner (PermBranchCommercial). Run with {{staffAccessToken}} = a branch_manager token to see GOVERNANCE_VIOLATION (403)."
+        },
+        {
+          "name": "Emergency Close Branch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Oven broke — cannot fulfil remaining orders today\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/emergency-close",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "emergency-close"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Suspend Branch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Temporary closure for renovation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/suspend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "suspend"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reactivate Branch",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/reactivate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "reactivate"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenancy — Branch Exceptions",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Exceptions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/exceptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "exceptions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Exception (Thanksgiving closure)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "if (body.data) { pm.environment.set('exceptionId', body.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-11-26\",\n  \"reason\": \"Thanksgiving\",\n  \"isClosed\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/exceptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "exceptions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Exception",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/exceptions/{{exceptionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "exceptions",
+                "{{exceptionId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenancy — Governance",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Governance Rules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/governance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "governance"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Storefront — Delivery Eligibility",
+      "item": [
+        {
+          "name": "Check Delivery — Eligible ZIP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postcode\": \"08837\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/check-delivery",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "check-delivery"
+              ]
+            }
+          },
+          "description": "Matches the Edison NJ zip_list zone created above — run after 'Create Branch — Edison NJ'."
+        },
+        {
+          "name": "Check Delivery — Unserved ZIP (nearest-branches fallback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postcode\": \"99999\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/check-delivery",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "check-delivery"
+              ]
+            }
+          },
+          "description": "No branch covers this ZIP — eligible:false with up to 3 nearest branches and emailCapturePrompt:true (SF-03). Distance is null unless GOOGLE_MAPS_API_KEY is configured."
+        },
+        {
+          "name": "List Pickup Branches Near ZIP",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/branches?postcode=08837",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "branches"
+              ],
+              "query": [
+                {
+                  "key": "postcode",
+                  "value": "08837"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Zone Coverage Notify (email capture)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"postcode\": \"99999\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/zone-coverage-notify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "zone-coverage-notify"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog — Storefront",
+      "item": [
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "categories"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Products (Edison NJ branch)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/products?branchId={{branchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "branchId",
+                  "value": "{{branchId}}"
+                }
+              ]
+            }
+          },
+          "description": "CAT-07: unavailable items are still returned, with availability.available=false and a reason — never silently omitted. Run 'Tenancy — Branches > Create Branch — Edison NJ' first so {{branchId}} is set."
+        },
+        {
+          "name": "List Products — Occasion Filter (birthday)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/products?branchId={{branchId}}&occasion=birthday",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "branchId",
+                  "value": "{{branchId}}"
+                },
+                {
+                  "key": "occasion",
+                  "value": "birthday"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Product Detail — Berry Blossom Cupcake Bouquet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "if (body.data) {",
+                  "  pm.environment.set('productId', body.data.id);",
+                  "  if (body.data.variants && body.data.variants.length) { pm.environment.set('variantId', body.data.variants[0].id); }",
+                  "  const flavourGroup = (body.data.modifierGroups || []).find(g => g.type === 'flavour');",
+                  "  if (flavourGroup && flavourGroup.options.length) { pm.environment.set('flavourId', flavourGroup.options[0].id); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/products/berry-blossom-cupcake-bouquet?branchId={{branchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "products",
+                "berry-blossom-cupcake-bouquet"
+              ],
+              "query": [
+                {
+                  "key": "branchId",
+                  "value": "{{branchId}}"
+                }
+              ]
+            }
+          },
+          "description": "Matches the approved Figma product-detail screen exactly: 6/9/12/15-count variants at $68/$88/$109/$129, Flavours, Add a little extra, Presentation, Wrap Colour modifier groups."
+        },
+        {
+          "name": "Get Site Content (hero + marquee)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/content?keys=hero_headline,marquee_text,bestsellers_heading",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "content"
+              ],
+              "query": [
+                {
+                  "key": "keys",
+                  "value": "hero_headline,marquee_text,bestsellers_heading"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog — Admin",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Create Product (Test Product)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.environment.set('newProductSlug', 'test-product-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "if (body.data) { pm.environment.set('newProductId', body.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": \"11111111-0000-0000-0000-000000000002\",\n  \"name\": \"Test Cupcake Box\",\n  \"slug\": \"{{newProductSlug}}\",\n  \"description\": \"A product created via Postman for testing.\",\n  \"basePriceCents\": 4500,\n  \"variants\": [\n    { \"name\": \"6 Cupcakes\", \"label\": \"Classic\", \"priceDeltaCents\": 0, \"sortOrder\": 1 }\n  ],\n  \"modifierGroups\": [\n    { \"name\": \"Flavours\", \"type\": \"flavour\", \"isRequired\": true, \"minSelect\": 1, \"maxSelect\": 2, \"sortOrder\": 1, \"options\": [\n      { \"name\": \"Vanilla\", \"sortOrder\": 1 },\n      { \"name\": \"Chocolate\", \"sortOrder\": 2 }\n    ] }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products"
+              ]
+            }
+          },
+          "description": "Requires super_admin (catalogue.edit_master — brand-locked, GOV-02)."
+        },
+        {
+          "name": "List Products (Admin, incl. inactive)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Product (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/products/{{newProductId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products",
+                "{{newProductId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Product — Partial (price band only)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": \"11111111-0000-0000-0000-000000000002\",\n  \"name\": \"Test Cupcake Box\",\n  \"slug\": \"{{newProductSlug}}\",\n  \"description\": \"A product created via Postman for testing.\",\n  \"basePriceCents\": 4500,\n  \"priceFloorCents\": 4000,\n  \"priceCeilingCents\": 5500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/products/{{newProductId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products",
+                "{{newProductId}}"
+              ]
+            }
+          },
+          "description": "Omits \"variants\"/\"modifierGroups\" on purpose — these must be left untouched, not wiped (see the store-layer nil-guard). Follow with 'Get Product (Admin)' to confirm the variant created above still exists."
+        },
+        {
+          "name": "Delete Product (soft delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/products/{{newProductId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products",
+                "{{newProductId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Availability Grid",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "availability"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Availability — Price Override Below Floor (rejected)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priceOverrideCents\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/products/{{productId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "products",
+                "{{productId}}",
+                "availability"
+              ]
+            }
+          },
+          "description": "Expects 422 PRICE_BELOW_FLOOR once a price floor has been set on the product (GOV-10). Run 'Get Product Detail' first so {{productId}} is set."
+        },
+        {
+          "name": "Update Availability — Disable at this Branch",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branchEnabled\": false,\n  \"reason\": \"Temporarily out of stock\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/products/{{productId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "products",
+                "{{productId}}",
+                "availability"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Date Override (Christmas closed)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-12-25\",\n  \"available\": false,\n  \"reason\": \"Christmas — closed\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/products/{{productId}}/date-override",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "products",
+                "{{productId}}",
+                "date-override"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bulk Disable (ingredient shortage)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productIds\": [\"{{productId}}\"],\n  \"reason\": \"Ingredient shortage\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/availability/bulk-disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "availability",
+                "bulk-disable"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sold Out (one-tap)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Ran out of raspberries\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/products/{{productId}}/sold-out",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "products",
+                "{{productId}}",
+                "sold-out"
+              ]
+            }
+          },
+          "description": "ADM-14: one-tap sold-out, no navigation into settings. Creates a date override for today only."
+        },
+        {
+          "name": "Restore Today",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/products/{{productId}}/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "products",
+                "{{productId}}",
+                "restore"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set Site Content",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": \"Sweet Gifts That Bloom with Joy — Updated via Postman\",\n  \"type\": \"text\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/content/{{contentKey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "content",
+                "{{contentKey}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ordering — Storefront (Cart & Checkout)",
+      "item": [
+        {
+          "name": "Get Available Slots (pickup)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/slots?branchId={{branchId}}&fulfilmentType=pickup&days=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "slots"
+              ],
+              "query": [
+                {
+                  "key": "branchId",
+                  "value": "{{branchId}}"
+                },
+                {
+                  "key": "fulfilmentType",
+                  "value": "pickup"
+                },
+                {
+                  "key": "days",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "description": "SF-20/SCH-01..06: only slots the branch can genuinely fulfil, with remaining capacity, are ever returned. Run 'Ordering — Admin > Update Schedule Config' or set opening hours on the branch first if this comes back empty."
+        },
+        {
+          "name": "Add to Cart — Berry Blossom (guest)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const cartToken = pm.response.headers.get('X-Cart-Token');",
+                  "if (cartToken) { pm.environment.set('guestCartToken', cartToken); }",
+                  "if (body.data && body.data.items && body.data.items.length) { pm.environment.set('cartItemId', body.data.items[0].cartItemId); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branchId\": \"{{branchId}}\",\n  \"productId\": \"{{productId}}\",\n  \"variantId\": \"{{variantId}}\",\n  \"selectedFlavourIds\": [\"{{flavourId}}\"],\n  \"quantity\": 2,\n  \"isGift\": true,\n  \"recipient\": { \"firstName\": \"John\", \"lastName\": \"Kelwin\" },\n  \"giftMessage\": \"Happy birthday!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "cart",
+                "items"
+              ]
+            }
+          },
+          "description": "No Authorization header — guest checkout (SF-29). The response's X-Cart-Token header identifies this cart on every subsequent call; captured into {{guestCartToken}} and sent via the X-Cart-Token header on the requests below. Run 'Catalog — Storefront > Get Product Detail' first so {{productId}}/{{variantId}}/{{flavourId}} are set."
+        },
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Cart-Token",
+                "value": "{{guestCartToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "cart"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Cart Item — Quantity",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Cart-Token",
+                "value": "{{guestCartToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 3,\n  \"selectedFlavourIds\": [\"{{flavourId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/cart/items/{{cartItemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "cart",
+                "items",
+                "{{cartItemId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set Fulfilment — Pickup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Cart-Token",
+                "value": "{{guestCartToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilmentType\": \"pickup\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/cart/fulfilment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "cart",
+                "fulfilment"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set Schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Cart-Token",
+                "value": "{{guestCartToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-08-25\",\n  \"slotStart\": \"14:00:00\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/cart/schedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "cart",
+                "schedule"
+              ]
+            }
+          },
+          "description": "Use a date/slotStart returned by 'Get Available Slots' above — slot times come back as HH:MM:SS."
+        },
+        {
+          "name": "Set Tip",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Cart-Token",
+                "value": "{{guestCartToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fixedCents\": 1000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/cart/tip",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "cart",
+                "tip"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Validate Cart (checkout/validate)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Cart-Token",
+                "value": "{{guestCartToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/checkout/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "checkout",
+                "validate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Order (checkout)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.environment.set('idempotencyKey', 'postman-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "if (body.data) {",
+                  "  pm.environment.set('orderId', body.data.id);",
+                  "  pm.environment.set('orderReference', body.data.reference);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Cart-Token",
+                "value": "{{guestCartToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient\": { \"firstName\": \"John\", \"lastName\": \"Kelwin\", \"phone\": \"+17325551234\" },\n  \"giftMessage\": \"Happy birthday!\",\n  \"isGift\": true,\n  \"purchaser\": { \"firstName\": \"Jane\", \"lastName\": \"Smith\", \"email\": \"{{customerEmail}}\", \"phone\": \"+17325559999\" },\n  \"deliveryInstructions\": null,\n  \"marketingOptIn\": false,\n  \"payment\": { \"sourceId\": \"cnon:card-nonce-ok\" }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "orders"
+              ]
+            }
+          },
+          "description": "Payment is captured via NoopPaymentProcessor until the payments module ships — no real charge occurs. Re-sending this exact request (same Idempotency-Key) returns the SAME order rather than creating a duplicate (SF-28) — even after this first call clears the cart."
+        },
+        {
+          "name": "Track Order (public, no auth)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/track/{{orderReference}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "track",
+                "{{orderReference}}"
+              ]
+            }
+          },
+          "description": "SF-32: safe to share with the recipient — no login required, minimal info (e.g. recipient shown as \"John K.\")."
+        }
+      ]
+    },
+    {
+      "name": "Ordering — Account (Order History)",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List My Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/account/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/account/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "orders",
+                "{{orderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel My Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Changed my mind\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account/orders/{{orderId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "orders",
+                "{{orderId}}",
+                "cancel"
+              ]
+            }
+          },
+          "description": "ORD-16 tiered refund: full refund if well ahead of the slot, 50% if within the branch's lead-time window."
+        },
+        {
+          "name": "Reorder",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/account/orders/{{orderId}}/reorder",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "orders",
+                "{{orderId}}",
+                "reorder"
+              ]
+            }
+          },
+          "description": "ACC-12: re-validates availability/pricing rather than blindly replaying — unavailable items come back as warnings instead of failing the whole reorder."
+        },
+        {
+          "name": "Claim Guest Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderReference\": \"{{orderReference}}\",\n  \"email\": \"{{customerEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/account/claim-order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "claim-order"
+              ]
+            }
+          },
+          "description": "ACC-14: links a guest order to this account once the purchaser email matches."
+        }
+      ]
+    },
+    {
+      "name": "Ordering — Admin (Order Management)",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Orders (branch-scoped)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders?branchId={{branchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "branchId",
+                  "value": "{{branchId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Orders — Search by Recipient/Phone",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders?branchId={{branchId}}&search=Kelwin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "branchId",
+                  "value": "{{branchId}}"
+                },
+                {
+                  "key": "search",
+                  "value": "Kelwin"
+                }
+              ]
+            }
+          },
+          "description": "ADM-01: a manager on the phone finds an order by recipient name/phone in under 10 seconds."
+        },
+        {
+          "name": "List Orders — Today's View",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/views/today?branchId={{branchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "views",
+                "today"
+              ],
+              "query": [
+                {
+                  "key": "branchId",
+                  "value": "{{branchId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Orders — Unfulfilled",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/views/unfulfilled?branchId={{branchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "views",
+                "unfulfilled"
+              ],
+              "query": [
+                {
+                  "key": "branchId",
+                  "value": "{{branchId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Order (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Amend Order — Gift Message",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"giftMessage\": \"Updated: Happy birthday, love you!\",\n  \"reason\": \"Customer called to update the message\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderId}}"
+              ]
+            }
+          },
+          "description": "ORD-06..15: every amendment is audited with before/after values. Only works while the order is pre-production (placed/confirmed/scheduled)."
+        },
+        {
+          "name": "Amend Order — Reschedule",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledDate\": \"2026-08-26\",\n  \"slotStart\": \"11:00:00\",\n  \"reason\": \"Customer requested a later pickup\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderId}}"
+              ]
+            }
+          },
+          "description": "ORD-09: releases the original slot and reserves the new one atomically."
+        },
+        {
+          "name": "Cancel Order (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Customer called to cancel\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderId}}",
+                "cancel"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refund Order (partial)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amountCents\": 1000,\n  \"reason\": \"Goodwill gesture — late pickup notification\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/refund",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderId}}",
+                "refund"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark Fulfilled",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Handed to customer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/mark-fulfilled",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderId}}",
+                "mark-fulfilled"
+              ]
+            }
+          },
+          "description": "ADM-05: the manual close path used in R1 while POS/KDS routing is not yet live."
+        },
+        {
+          "name": "Set Order Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\",\n  \"note\": \"Confirmed by branch\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Manual Order (telephone — ADM-10)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "if (body.data) { pm.environment.set('manualOrderId', body.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branchId\": \"{{branchId}}\",\n  \"fulfilmentType\": \"pickup\",\n  \"scheduledDate\": \"2026-08-26\",\n  \"slotStart\": \"10:00:00\",\n  \"recipient\": { \"firstName\": \"Phone\", \"lastName\": \"Customer\" },\n  \"purchaser\": { \"firstName\": \"Phone\", \"lastName\": \"Customer\", \"email\": \"phone.customer@example.com\" },\n  \"items\": [\n    { \"productId\": \"{{productId}}\", \"variantId\": \"{{variantId}}\", \"selectedFlavourIds\": [\"{{flavourId}}\"], \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders"
+              ]
+            }
+          },
+          "description": "Goes through the exact same cart -> checkout pipeline as the storefront, just built from staff input — same validation and slot-reservation guarantees, auto-confirmed on creation."
+        }
+      ]
+    },
+    {
+      "name": "Ordering — Admin (Schedule & Slots)",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get Schedule Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/schedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "schedule"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Schedule Config",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slotDurationMins\": 60,\n  \"pickupCutoffTime\": \"16:00:00\",\n  \"deliveryCutoffTime\": \"14:00:00\",\n  \"maxOrdersPerSlot\": 10,\n  \"defaultLeadHours\": 2,\n  \"advanceDaysMax\": 30\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/schedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "schedule"
+              ]
+            }
+          },
+          "description": "SCH-01, SCH-02, SCH-05. A newly created branch already has sensible defaults (60 min slots, 10 orders/slot, 2h lead time) — this endpoint is for tuning them, not a required setup step."
+        },
+        {
+          "name": "List Slots for a Date",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/slots?date=2026-08-25&fulfilmentType=pickup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "slots"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-08-25"
+                },
+                {
+                  "key": "fulfilmentType",
+                  "value": "pickup"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Uplift Slot Capacity (peak day)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"maxCapacity\": 20\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/slots/{{slotId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "slots",
+                "{{slotId}}"
+              ]
+            }
+          },
+          "description": "SCH-09: temporary capacity increase for a known busy date (Valentine's, Mother's Day) without changing the standing schedule config. Get {{slotId}} from 'List Slots for a Date'."
+        }
+      ]
+    },
+    {
+      "name": "Admin — Branch Dashboard & Reports",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Branch Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "ADM-20: today's revenue/orders/AOV, order status breakdown, upcoming 7-day slot capacity load."
+        },
+        {
+          "name": "Branch Sales By Day",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/reports/sales?from=2026-08-01&to=2026-08-25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "reports",
+                "sales"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Branch Sales By Day — CSV Export",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/reports/sales?from=2026-08-01&to=2026-08-25&format=csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "reports",
+                "sales"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                },
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('CSV content-type', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv'));"
+                ]
+              }
+            }
+          ],
+          "description": "REP-16 CSV export — pass format=csv on any report list endpoint."
+        },
+        {
+          "name": "Branch Best/Worst Sellers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/reports/products?from=2026-08-01&to=2026-08-25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "reports",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('bestSellers/worstSellers present', () => {",
+                  "  pm.expect(body.data).to.have.property('bestSellers');",
+                  "  pm.expect(body.data).to.have.property('worstSellers');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "ADM-21. Same list sorted by revenue descending; bestSellers is the head, worstSellers the tail."
+        },
+        {
+          "name": "Branch Fulfilment Performance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/reports/fulfilment?from=2026-08-01&to=2026-08-25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "reports",
+                "fulfilment"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "Avg prep minutes and on-time completion rate, derived from order_status_events."
+        },
+        {
+          "name": "Branch Refund & Cancellation Rates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/reports/refunds?from=2026-08-01&to=2026-08-25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "reports",
+                "refunds"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Branch Amendment Log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{branchId}}/amendments?from=2026-08-01&to=2026-08-25&page=1&limit=25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{branchId}}",
+                "amendments"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "ADM-21 amendment log — paginated, newest first."
+        },
+        {
+          "name": "Branch Dashboard — Out of Scope (permission denied example)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches/{{secondBranchId}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "branches",
+                "{{secondBranchId}}",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 403 depending on caller scope', () => {",
+                  "  pm.expect([200,403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "A branch/franchise-scoped staff member gets 403 PERMISSION_DENIED for a branch outside their role assignment; a brand-scoped caller (super admin, finance) gets 200."
+        }
+      ]
+    },
+    {
+      "name": "Admin — Franchise Dashboard",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Franchise Consolidated Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/franchises/{{franchiseId}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "franchises",
+                "{{franchiseId}}",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('per-branch league table present', () => pm.expect(body.data).to.have.property('branches'));"
+                ]
+              }
+            }
+          ],
+          "description": "ADM-22: today's franchise-wide revenue/orders/AOV plus a per-branch league table."
+        }
+      ]
+    },
+    {
+      "name": "Admin — Network Reports (Super Admin / Finance)",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Network Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('pipeline + branch league present', () => {",
+                  "  pm.expect(body.data).to.have.property('pipeline');",
+                  "  pm.expect(body.data).to.have.property('branchLeague');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "REP-01/REP-02: today's network revenue/orders/AOV, live in-flight order pipeline, branch league table. Requires reports.network (super_admin, finance)."
+        },
+        {
+          "name": "Revenue Trend",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/revenue-trend?from=2026-08-01&to=2026-08-25&unit=day",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "revenue-trend"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                },
+                {
+                  "key": "unit",
+                  "value": "day"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "REP-03/04/05. unit is one of day, week, month."
+        },
+        {
+          "name": "Revenue Trend — CSV Export",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/revenue-trend?from=2026-08-01&to=2026-08-25&unit=day&format=csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "revenue-trend"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                },
+                {
+                  "key": "unit",
+                  "value": "day"
+                },
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Network Product Performance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/products?from=2026-08-01&to=2026-08-25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "REP-10, network-wide (optionally add franchiseId to scope to one franchise)."
+        },
+        {
+          "name": "Channel Breakdown",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/channels?from=2026-08-01&to=2026-08-25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "channels"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "REP-11: order count/revenue by channel (web, pos, phone, kds_manual)."
+        },
+        {
+          "name": "Peak Period Heatmap",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/peak-periods?from=2026-08-01&to=2026-08-25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "peak-periods"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('cells have dayOfWeek/hour', () => {",
+                  "  if (body.data && body.data.length) {",
+                  "    pm.expect(body.data[0]).to.have.property('dayOfWeek');",
+                  "    pm.expect(body.data[0]).to.have.property('hour');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "REP-13: order count/revenue by day-of-week x hour-of-day."
+        },
+        {
+          "name": "Refund & Cancellation Rates by Branch",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/refunds?from=2026-08-01&to=2026-08-25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "refunds"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "REP-14, one row per branch network-wide."
+        },
+        {
+          "name": "Comparable (\"Like-for-Like\") Sales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/comparable-sales?currentFrom=2026-08-01&currentTo=2026-08-25&compareFrom=2026-07-01&compareTo=2026-07-25&maturityMonths=13",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "comparable-sales"
+              ],
+              "query": [
+                {
+                  "key": "currentFrom",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "currentTo",
+                  "value": "2026-08-25"
+                },
+                {
+                  "key": "compareFrom",
+                  "value": "2026-07-01"
+                },
+                {
+                  "key": "compareTo",
+                  "value": "2026-07-25"
+                },
+                {
+                  "key": "maturityMonths",
+                  "value": "13"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('comparable and nonComparable both present', () => {",
+                  "  pm.expect(body.data).to.have.property('comparable');",
+                  "  pm.expect(body.data).to.have.property('nonComparable');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "REP-06 to REP-09, BRD Section 11.3. Only branches active and trading in BOTH periods, and open at least maturityMonths before compareFrom, count as comparable; every excluded branch is listed in nonComparable with a reason (new, suspended, closed, no_orders_in_period). Requires reports.comparable (super_admin, finance)."
+        },
+        {
+          "name": "Comparable Sales — Low Maturity Threshold (see newly-opened branches become comparable)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/comparable-sales?currentFrom=2026-08-01&currentTo=2026-08-25&compareFrom=2026-07-01&compareTo=2026-07-25&maturityMonths=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "comparable-sales"
+              ],
+              "query": [
+                {
+                  "key": "currentFrom",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "currentTo",
+                  "value": "2026-08-25"
+                },
+                {
+                  "key": "compareFrom",
+                  "value": "2026-07-01"
+                },
+                {
+                  "key": "compareTo",
+                  "value": "2026-07-25"
+                },
+                {
+                  "key": "maturityMonths",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "maturityMonths=0 (or omitted) falls back to the BRD default of 13 — this request demonstrates that default, not a literal zero-month threshold."
+        },
+        {
+          "name": "Network Audit Search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/network/audit-log?actorType=&action=&resourceType=&franchiseId=&branchId=&dateFrom=&dateTo=&page=1&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "network",
+                "audit-log"
+              ],
+              "query": [
+                {
+                  "key": "actorType",
+                  "value": ""
+                },
+                {
+                  "key": "action",
+                  "value": ""
+                },
+                {
+                  "key": "resourceType",
+                  "value": ""
+                },
+                {
+                  "key": "franchiseId",
+                  "value": ""
+                },
+                {
+                  "key": "branchId",
+                  "value": ""
+                },
+                {
+                  "key": "dateFrom",
+                  "value": ""
+                },
+                {
+                  "key": "dateTo",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "SA-15. Requires a brand-scoped role (super_admin, finance) — every other role gets 403."
+        }
+      ]
+    },
+    {
+      "name": "Admin — Customers",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{staffAccessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers?search=&franchiseId=&branchId=&page=1&limit=25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "franchiseId",
+                  "value": ""
+                },
+                {
+                  "key": "branchId",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.length) { pm.environment.set('customerId', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "description": "ADM-19. Brand-scoped roles see every customer; franchise/branch-scoped roles only see customers who have ordered from their scope."
+        },
+        {
+          "name": "Get Customer Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "description": "Includes totalOrders/totalSpendCents/lastOrderAt and tags."
+        },
+        {
+          "name": "Get Customer Order History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/{{customerId}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "customers",
+                "{{customerId}}",
+                "orders"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Customer Notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/{{customerId}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "customers",
+                "{{customerId}}",
+                "notes"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Customer Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/{{customerId}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "customers",
+                "{{customerId}}",
+                "notes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Called about delivery timing — prefers afternoon slots.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Customer Tag",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/{{customerId}}/tags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "customers",
+                "{{customerId}}",
+                "tags"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tag\": \"vip\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove Customer Tag",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/{{customerId}}/tags/vip",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "customers",
+                "{{customerId}}",
+                "tags",
+                "vip"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Customer Detail — Out of Scope (permission denied example)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 or 403 depending on caller scope', () => {",
+                  "  pm.expect([200,403,404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "Run this with a franchise/branch-scoped staff token for a customer who has never ordered from that scope — expect 403 PERMISSION_DENIED."
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Checkout Session (hosted Payment Link)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amountCents\": 7250,\n  \"currency\": \"USD\",\n  \"email\": \"{{customerEmail}}\",\n  \"returnPath\": \"/checkout\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storefront/payments/checkout-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "payments",
+                "checkout-session"
+              ]
+            }
+          },
+          "description": "Opens a Stripe Checkout page and returns its `id` (save as {{checkoutSessionId}}) and `url`. Redirect the browser to `url`; Stripe sends it back to STOREFRONT_BASE_URL + returnPath with `?session_id=...` appended."
+        },
+        {
+          "name": "Get Checkout Session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/storefront/payments/checkout-session/{{checkoutSessionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storefront",
+                "payments",
+                "checkout-session",
+                "{{checkoutSessionId}}"
+              ]
+            }
+          },
+          "description": "Reads a hosted-checkout session back live from Stripe. Once `paymentStatus` is `paid`, take `paymentId` from the response and send it as `payment.paymentId` on `POST /storefront/orders`."
+        }
+      ]
+    }
+  ]
+}

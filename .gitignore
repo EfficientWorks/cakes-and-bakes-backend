@@ -1,0 +1,9 @@
+.env
+/bin/
+*.exe
+*.test
+*.out
+.DS_Store
+
+# Locally-stored uploads (MEDIA_LOCAL_DIR). Never committed.
+# storage/

@@ -1,0 +1,29 @@
+# Local Postgres and Redis for the emzo Bakehouse backend.
+# Ports match the defaults in pkg/config (5500 / 6390), and are kept apart
+# from any other project's containers on the same machine.
+name: emzo-bakehouse
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bakehouse
+    ports:
+      - "5500:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6390:6379"
+
+volumes:
+  pgdata:

@@ -1,0 +1,26 @@
+# Version control — excluded so `go build -buildvcs=false` is honest and the
+# build context stays small.
+.git
+.gitignore
+.github
+
+# Local secrets. Railway supplies configuration through service variables.
+.env
+*.env
+!.env.example
+
+# Tooling and docs that do not belong in the image.
+.claude
+CLAUDE.md
+docs/
+postman/
+infra/
+README.md
+README.zip
+Makefile
+
+# Build output and test artefacts.
+bin/
+*.exe
+*.test
+*.out
