@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/store/shared"
 )
 
 // ListTags lists tags by name; status "" means all, search matches the name.
 func (s *Repo) ListTags(ctx context.Context, status, search string) ([]catalogapi.SeasonalTag, error) {
-	q, args := tagSelect, []any{}
+	q, args := tagScoped, []any{tenant.BusinessParam(ctx)}
 	if status != "" {
 		args = append(args, status)
 		q += fmt.Sprintf(" AND t.status = $%d", len(args))
@@ -30,11 +31,11 @@ func (s *Repo) ListTags(ctx context.Context, status, search string) ([]catalogap
 // ListTagsInUse is the active tags mapped to at least one active product:
 // the chips the storefront offers.
 func (s *Repo) ListTagsInUse(ctx context.Context) ([]catalogapi.SeasonalTag, error) {
-	rows, err := s.pool.Query(ctx, tagSelect+`
+	rows, err := s.pool.Query(ctx, tagScoped+`
 		AND t.status = 'active'
 		AND EXISTS (SELECT 1 FROM product_seasonal_tags pt JOIN products p ON p.id = pt.product_id
 		             WHERE pt.tag_id = t.id AND p.deleted_at IS NULL AND p.is_active = true)
-		ORDER BY lower(t.name)`)
+		ORDER BY lower(t.name)`, tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -42,14 +43,14 @@ func (s *Repo) ListTagsInUse(ctx context.Context) ([]catalogapi.SeasonalTag, err
 }
 
 func (s *Repo) GetTag(ctx context.Context, id string) (*catalogapi.SeasonalTag, error) {
-	return scanTag(s.pool.QueryRow(ctx, tagSelect+" AND t.id::text = $1", id))
+	return scanTag(s.pool.QueryRow(ctx, tagScoped+" AND t.id::text = $2", tenant.BusinessParam(ctx), id))
 }
 
 // TagsForProduct is a product's tags, by name.
 func (s *Repo) TagsForProduct(ctx context.Context, productID string) ([]catalogapi.SeasonalTag, error) {
-	rows, err := s.pool.Query(ctx, tagSelect+`
-		AND t.id IN (SELECT tag_id FROM product_seasonal_tags WHERE product_id::text = $1)
-		ORDER BY lower(t.name)`, productID)
+	rows, err := s.pool.Query(ctx, tagScoped+`
+		AND t.id IN (SELECT tag_id FROM product_seasonal_tags WHERE product_id::text = $2)
+		ORDER BY lower(t.name)`, tenant.BusinessParam(ctx), productID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,9 +68,9 @@ func (s *Repo) TagIDsForSlugs(ctx context.Context, names []string) ([]string, er
 		}
 		var id string
 		err := s.pool.QueryRow(ctx, `
-			INSERT INTO seasonal_tags (name, slug) VALUES ($1, $2)
-			ON CONFLICT (slug) WHERE deleted_at IS NULL DO UPDATE SET slug = EXCLUDED.slug
-			RETURNING id`, displayTagName(n), slug).Scan(&id)
+			INSERT INTO seasonal_tags (name, slug, business_id) VALUES ($1, $2, $3)
+			ON CONFLICT (business_id, slug) WHERE deleted_at IS NULL DO UPDATE SET slug = EXCLUDED.slug
+			RETURNING id`, displayTagName(n), slug, tenant.BusinessParam(ctx)).Scan(&id)
 		if err != nil {
 			return nil, err
 		}

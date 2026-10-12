@@ -9,18 +9,20 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/identity/identityapi"
 	"bakehouse/services/identity/internal/store/shared"
 )
 
-// CreatePOSCustomer inserts a new POS customer affiliated with a specific branch.
+// CreatePOSCustomer inserts a new POS customer affiliated with a specific
+// branch, in the caller's business.
 func (s *Repo) CreatePOSCustomer(ctx context.Context, branchID, firstName, lastName string, email, mobileNumber *string) (*identityapi.Customer, error) {
 	const q = `
 		INSERT INTO customers (
 			branch_id, customer_type, first_name, last_name, email, mobile_number,
-			password_hash, is_verified, created_at, updated_at
+			password_hash, is_verified, created_at, updated_at, business_id
 		)
-		VALUES ($1, 'pos', $2, $3, $4, $5, '', true, NOW(), NOW())
+		VALUES ($1, 'pos', $2, $3, $4, $5, '', true, NOW(), NOW(), $6)
 		RETURNING id, branch_id, customer_type, COALESCE(email, ''), password_hash, first_name, last_name, mobile_number,
 		          is_verified, marketing_opt_in, marketing_opt_in_at, date_of_birth, anniversary_date, created_at, updated_at`
 
@@ -29,7 +31,7 @@ func (s *Repo) CreatePOSCustomer(ctx context.Context, branchID, firstName, lastN
 		emailVal = strings.TrimSpace(*email)
 	}
 
-	row := s.pool.QueryRow(ctx, q, branchID, firstName, lastName, emailVal, mobileNumber)
+	row := s.pool.QueryRow(ctx, q, branchID, firstName, lastName, emailVal, mobileNumber, tenant.BusinessParam(ctx))
 	return scanCustomer(row)
 }
 
@@ -44,6 +46,10 @@ func (s *Repo) ListPOSCustomers(ctx context.Context, branchID, search string, pa
 
 	where := []string{"c.branch_id = $1", "c.customer_type = 'pos'", "c.deleted_at IS NULL"}
 	args := []any{branchID}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("c.business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 
 	if s := strings.TrimSpace(search); s != "" {
 		args = append(args, "%"+s+"%")
@@ -104,42 +110,44 @@ func (s *Repo) ListPOSCustomers(ctx context.Context, branchID, search string, pa
 
 // GetPOSCustomerByID retrieves a POS customer by ID.
 func (s *Repo) GetPOSCustomerByID(ctx context.Context, customerID string) (*identityapi.Customer, error) {
-	const q = `
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{customerID})
+	q := `
 		SELECT id, branch_id, customer_type, COALESCE(email, ''), password_hash, first_name, last_name, mobile_number,
 		       is_verified, marketing_opt_in, marketing_opt_in_at, date_of_birth, anniversary_date, created_at, updated_at
 		FROM customers
-		WHERE id = $1 AND customer_type = 'pos' AND deleted_at IS NULL`
+		WHERE id = $1 AND customer_type = 'pos' AND deleted_at IS NULL` + cond
 
-	row := s.pool.QueryRow(ctx, q, customerID)
+	row := s.pool.QueryRow(ctx, q, args...)
 	return scanCustomer(row)
 }
 
 // GetPOSCustomerByEmail finds one store's POS customer by email; the email
 // is unique per store, as the mobile is.
 func (s *Repo) GetPOSCustomerByEmail(ctx context.Context, email, branchID string) (*identityapi.Customer, error) {
-	const q = `
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{email, branchID})
+	q := `
 		SELECT id, branch_id, customer_type, email, password_hash, first_name, last_name, mobile_number,
 		       is_verified, marketing_opt_in, marketing_opt_in_at, date_of_birth, anniversary_date, created_at, updated_at
 		FROM customers
 		WHERE lower(email) = lower($1) AND deleted_at IS NULL
-		  AND customer_type = 'pos' AND branch_id = NULLIF($2, '')::uuid
+		  AND customer_type = 'pos' AND branch_id = NULLIF($2, '')::uuid` + cond + `
 		LIMIT 1`
-	row := s.pool.QueryRow(ctx, q, email, branchID)
+	row := s.pool.QueryRow(ctx, q, args...)
 	return scanCustomer(row)
 }
 
 // UpdatePOSCustomer writes a POS customer's details; email is written as
 // given (nil clears it). shared.ErrEmailTaken when another customer has that email.
 func (s *Repo) UpdatePOSCustomer(ctx context.Context, id, firstName, lastName string, email, mobile *string, dateOfBirth, anniversaryDate *time.Time) (*identityapi.Customer, error) {
-
-	const q = `
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{id, firstName, lastName, mobile, dateOfBirth, anniversaryDate, email})
+	q := `
 		UPDATE customers
 		SET first_name = $2, last_name = $3, mobile_number = $4, date_of_birth = $5, anniversary_date = $6,
 		    email = $7, updated_at = NOW()
-		WHERE id = $1 AND customer_type = 'pos' AND deleted_at IS NULL
+		WHERE id = $1 AND customer_type = 'pos' AND deleted_at IS NULL` + cond + `
 		RETURNING id, branch_id, customer_type, COALESCE(email, ''), password_hash, first_name, last_name, mobile_number,
 		          is_verified, marketing_opt_in, marketing_opt_in_at, date_of_birth, anniversary_date, created_at, updated_at`
-	row := s.pool.QueryRow(ctx, q, id, firstName, lastName, mobile, dateOfBirth, anniversaryDate, email)
+	row := s.pool.QueryRow(ctx, q, args...)
 	c, err := scanCustomer(row)
 	if err != nil {
 		if errors.Is(err, shared.ErrNotFound) {
@@ -164,6 +172,9 @@ func (s *Repo) UpdatePOSCustomerAddress(
 	// `street`, so writing street alone left the old address on screen.
 	// If the customer has no address row yet (or none marked default),
 	// one is created rather than the update silently touching nothing.
+	if err := shared.CustomerInBusiness(ctx, s.pool, customerID); err != nil {
+		return err
+	}
 	const q = `
 		UPDATE customer_addresses
 		SET postcode   = COALESCE($2, postcode),
@@ -201,12 +212,13 @@ func (s *Repo) UpdatePOSCustomerAddress(
 
 // DeletePOSCustomerByID soft-deletes a POS customer by setting deleted_at.
 func (s *Repo) DeletePOSCustomerByID(ctx context.Context, customerID string) error {
-	const q = `
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{customerID})
+	q := `
 		UPDATE customers
 		SET deleted_at = NOW(), updated_at = NOW()
-		WHERE id = $1 AND customer_type = 'pos' AND deleted_at IS NULL`
+		WHERE id = $1 AND customer_type = 'pos' AND deleted_at IS NULL` + cond
 
-	tag, err := s.pool.Exec(ctx, q, customerID)
+	tag, err := s.pool.Exec(ctx, q, args...)
 	if err != nil {
 		return fmt.Errorf("delete pos customer: %w", err)
 	}

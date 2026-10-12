@@ -682,6 +682,7 @@ func (s *Service) priceCartWithCoupon(ctx context.Context, cart *ordersapi.Cart)
 		SubtotalCents: subtotal, DeliveryFeeCents: deliveryFee, TaxCents: tax, TaxName: branchTaxName(branch),
 		TipCents: cart.TipCents, DiscountCents: discountCents, TotalCents: total,
 		DeliveryAvailable: deliveryAvailable, DeliveryMessage: deliveryMessage,
+		Currency: branch.Currency,
 	}, discount, nil
 }
 

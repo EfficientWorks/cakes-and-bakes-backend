@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/store/shared"
 )
@@ -14,9 +15,10 @@ import (
 func (s *Repo) CreateTag(ctx context.Context, t catalogapi.SeasonalTag) (*catalogapi.SeasonalTag, error) {
 	var id string
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO seasonal_tags (name, slug, description, status, restricted, restricted_from, restricted_to, repeat_yearly)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-		t.Name, t.Slug, t.Description, t.Status, t.Restricted, t.RestrictedFrom, t.RestrictedTo, t.RepeatYearly).Scan(&id)
+		INSERT INTO seasonal_tags (name, slug, description, status, restricted, restricted_from, restricted_to, repeat_yearly, business_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+		t.Name, t.Slug, t.Description, t.Status, t.Restricted, t.RestrictedFrom, t.RestrictedTo, t.RepeatYearly,
+		tenant.BusinessParam(ctx)).Scan(&id)
 	if err != nil {
 		return nil, tagWriteError(err)
 	}
@@ -28,8 +30,9 @@ func (s *Repo) UpdateTag(ctx context.Context, t catalogapi.SeasonalTag) (*catalo
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE seasonal_tags SET name = $2, slug = $3, description = $4, status = $5, restricted = $6,
 		       restricted_from = $7, restricted_to = $8, repeat_yearly = $9, updated_at = NOW()
-		 WHERE id::text = $1 AND deleted_at IS NULL`,
-		t.ID, t.Name, t.Slug, t.Description, t.Status, t.Restricted, t.RestrictedFrom, t.RestrictedTo, t.RepeatYearly)
+		 WHERE id::text = $1 AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $10`,
+		t.ID, t.Name, t.Slug, t.Description, t.Status, t.Restricted, t.RestrictedFrom, t.RestrictedTo, t.RepeatYearly,
+		tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, tagWriteError(err)
 	}
@@ -44,7 +47,8 @@ func (s *Repo) UpdateTag(ctx context.Context, t catalogapi.SeasonalTag) (*catalo
 
 // DeleteTag removes a tag and unmaps it from every product.
 func (s *Repo) DeleteTag(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE seasonal_tags SET deleted_at = NOW() WHERE id::text = $1 AND deleted_at IS NULL`, id)
+	tag, err := s.pool.Exec(ctx, `UPDATE seasonal_tags SET deleted_at = NOW()
+		  WHERE id::text = $1 AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $2`, id, tenant.BusinessParam(ctx))
 	if err != nil {
 		return err
 	}
@@ -78,7 +82,9 @@ func (s *Repo) SetProductTags(ctx context.Context, productID string, tagIDs []st
 	if len(ids) > 0 {
 		var found int
 		if err := s.pool.QueryRow(ctx, `
-			SELECT count(*) FROM seasonal_tags WHERE id::text = ANY($1) AND deleted_at IS NULL`, ids).Scan(&found); err != nil {
+			SELECT count(*) FROM seasonal_tags
+			 WHERE id::text = ANY($1) AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $2`,
+			ids, tenant.BusinessParam(ctx)).Scan(&found); err != nil {
 			return err
 		}
 		if found != len(ids) {

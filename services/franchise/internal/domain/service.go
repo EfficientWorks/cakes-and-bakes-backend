@@ -202,7 +202,6 @@ func (s *Service) ListBranches(ctx context.Context, claims *auth.StaffClaims, st
 	if err != nil {
 		return nil, apperr.Internal(err)
 	}
-	all = onlyBusiness(all, claims)
 	if tenant.IsBrandScoped(claims) {
 		return all, nil
 	}
@@ -931,20 +930,4 @@ func (s *Service) locateBranch(ctx context.Context, b *franchiseapi.Branch, forc
 	}
 	b.Latitude, b.Longitude = &lat, &lng
 	return true
-}
-
-// onlyBusiness keeps the stores of the caller's business. A caller with no
-// business (an account from before businesses existed) sees what it always
-// did.
-func onlyBusiness(branches []franchiseapi.Branch, claims *auth.StaffClaims) []franchiseapi.Branch {
-	if claims == nil || claims.BusinessID == "" {
-		return branches
-	}
-	out := make([]franchiseapi.Branch, 0, len(branches))
-	for _, b := range branches {
-		if b.BusinessID != nil && *b.BusinessID == claims.BusinessID {
-			out = append(out, b)
-		}
-	}
-	return out
 }

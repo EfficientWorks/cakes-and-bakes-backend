@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin/adminapi"
 )
 
@@ -20,6 +21,19 @@ func (s *Repo) SearchAuditLog(ctx context.Context, f adminapi.AuditSearchFilter)
 	add := func(cond string, val interface{}) {
 		args = append(args, val)
 		where = append(where, fmt.Sprintf(cond, len(args)))
+	}
+	/*
+	 * audit_log has no business of its own, so an entry belongs to whoever
+	 * made it: a staff actor's business. An entry with no staff behind it (a
+	 * customer, the system) falls back to the business of its branch.
+	 */
+	if tenant.Scoped(ctx) {
+		add(`(EXISTS (SELECT 1 FROM staff_users su
+		              WHERE su.id = audit_log.actor_id AND su.business_id IS NOT DISTINCT FROM $%[1]d)
+		      OR (NOT EXISTS (SELECT 1 FROM staff_users su WHERE su.id = audit_log.actor_id)
+		          AND EXISTS (SELECT 1 FROM branches br
+		                       WHERE br.id = audit_log.branch_id AND br.business_id IS NOT DISTINCT FROM $%[1]d)))`,
+			tenant.BusinessParam(ctx))
 	}
 	if f.ActorID != "" {
 		add("actor_id = $%d", f.ActorID)

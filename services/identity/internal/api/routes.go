@@ -6,11 +6,10 @@ import (
 	"bakehouse/pkg/tenant"
 )
 
-// MountPublic wires customer auth (public) and staff auth (public) onto v1
-// directly. The customer account area is mounted separately via
-// MountAccount, onto a router shared with other modules (ordering also
-// attaches customer-order routes there) — see cmd/api/main.go.
-func MountPublic(v1 chi.Router, h *Handler) {
+// MountCustomerAuth wires customer sign-up and sign-in onto v1. Customers
+// belong to one business, so these routes sit behind the business resolver.
+// The account area is mounted separately via MountAccount.
+func MountCustomerAuth(v1 chi.Router, h *Handler) {
 	v1.Route("/auth", func(r chi.Router) {
 		r.Post("/register", h.RegisterStep1)
 		r.Post("/register/profile", h.RegisterStep2) // Authorization: Bearer <registrationToken>
@@ -24,7 +23,11 @@ func MountPublic(v1 chi.Router, h *Handler) {
 		r.Post("/verify-reset-otp", h.VerifyResetOTP)
 		r.Post("/reset-password", h.ResetPassword)
 	})
+}
 
+// MountStaffAuth wires staff, POS and KDS sign-in onto v1. A staff member's
+// business comes from their own account, never from the request.
+func MountStaffAuth(v1 chi.Router, h *Handler) {
 	// The till signs in with an outlet code and a passcode rather than an
 	// email and a password, so it gets its own unauthenticated route.
 	v1.Route("/pos/auth", func(r chi.Router) {

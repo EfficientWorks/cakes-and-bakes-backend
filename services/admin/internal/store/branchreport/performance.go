@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin/adminapi"
 )
 
@@ -14,6 +15,11 @@ import (
 func (s *Repo) ProductPerformance(ctx context.Context, branchID string, from, to time.Time) ([]adminapi.ProductPerformance, error) {
 	where := []string{"o.created_at >= $1", "o.created_at < $2", "o.status <> 'cancelled'"}
 	args := []interface{}{from, to}
+	// No branch means the whole network — of the caller's business.
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("o.business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 	if branchID != "" {
 		args = append(args, branchID)
 		where = append(where, fmt.Sprintf("o.branch_id = $%d", len(args)))
@@ -88,6 +94,11 @@ func (s *Repo) FulfilmentPerformance(ctx context.Context, branchID string, from,
 func (s *Repo) RefundCancellationStats(ctx context.Context, branchID string, from, to time.Time) ([]adminapi.RefundCancellationStats, error) {
 	where := []string{"o.created_at >= $1", "o.created_at < $2"}
 	args := []interface{}{from, to}
+	// No branch means the whole network — of the caller's business.
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("o.business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 	if branchID != "" {
 		args = append(args, branchID)
 		where = append(where, fmt.Sprintf("o.branch_id = $%d", len(args)))

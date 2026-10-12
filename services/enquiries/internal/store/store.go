@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/enquiries/enquiriesapi"
 )
 
@@ -49,25 +50,37 @@ func scanEnquiry(row pgx.Row) (*enquiriesapi.Enquiry, error) {
 	return &e, nil
 }
 
-// Create inserts an enquiry and returns it as stored.
+// businessCond is " AND business_id IS NOT DISTINCT FROM $n" with the
+// caller's business appended to args, or "" for unscoped system work.
+func businessCond(ctx context.Context, args []any) (string, []any) {
+	if !tenant.Scoped(ctx) {
+		return "", args
+	}
+	args = append(args, tenant.BusinessParam(ctx))
+	return fmt.Sprintf(" AND business_id IS NOT DISTINCT FROM $%d", len(args)), args
+}
+
+// Create inserts an enquiry, filed under the storefront's business, and
+// returns it as stored.
 func (s *Store) Create(ctx context.Context, e enquiriesapi.Enquiry, sourceIP string) (*enquiriesapi.Enquiry, error) {
 	details, err := json.Marshal(e.Details)
 	if err != nil {
 		return nil, fmt.Errorf("encode enquiry details: %w", err)
 	}
 	const q = `
-		INSERT INTO enquiries (type, name, email, phone, message, branch_id, details, source_ip)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		INSERT INTO enquiries (type, name, email, phone, message, branch_id, details, source_ip, business_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 		RETURNING id::text, type, name, email, phone, message,
 		          branch_id::text, details, status,
 		          handled_by::text, handled_at, staff_note, created_at, updated_at`
 	return scanEnquiry(s.pool.QueryRow(ctx, q,
-		e.Type, e.Name, e.Email, e.Phone, e.Message, e.BranchID, details, nullIfEmpty(sourceIP)))
+		e.Type, e.Name, e.Email, e.Phone, e.Message, e.BranchID, details, nullIfEmpty(sourceIP), tenant.BusinessParam(ctx)))
 }
 
-// Get returns one enquiry by id.
+// Get returns one enquiry by id; another business's is ErrNotFound.
 func (s *Store) Get(ctx context.Context, id string) (*enquiriesapi.Enquiry, error) {
-	return scanEnquiry(s.pool.QueryRow(ctx, enquirySelect+" WHERE id = $1", id))
+	cond, args := businessCond(ctx, []any{id})
+	return scanEnquiry(s.pool.QueryRow(ctx, enquirySelect+" WHERE id = $1"+cond, args...))
 }
 
 // List returns one page of the admin queue plus the total match count.
@@ -79,6 +92,9 @@ func (s *Store) List(ctx context.Context, f enquiriesapi.EnquiryFilter) ([]enqui
 	add := func(cond string, val interface{}) {
 		args = append(args, val)
 		where += fmt.Sprintf(cond, len(args))
+	}
+	if tenant.Scoped(ctx) {
+		add(" AND business_id IS NOT DISTINCT FROM $%d", tenant.BusinessParam(ctx))
 	}
 	if f.Type != "" {
 		add(" AND type = $%d", f.Type)
@@ -127,35 +143,37 @@ func (s *Store) List(ctx context.Context, f enquiriesapi.EnquiryFilter) ([]enqui
 
 // UpdateStatus moves an enquiry through its lifecycle, recording who handled it.
 func (s *Store) UpdateStatus(ctx context.Context, id, status, staffID string, note *string) (*enquiriesapi.Enquiry, error) {
-	const q = `
+	cond, args := businessCond(ctx, []any{id, status, nullIfEmpty(staffID), note})
+	q := `
 		UPDATE enquiries
 		SET status     = $2,
 		    handled_by = $3,
 		    handled_at = CASE WHEN $2 = 'new' THEN NULL ELSE now() END,
 		    staff_note = COALESCE($4, staff_note),
 		    updated_at = now()
-		WHERE id = $1
+		WHERE id = $1` + cond + `
 		RETURNING id::text, type, name, email, phone, message,
 				  branch_id::text, details, status,
 		          handled_by::text, handled_at, staff_note, created_at, updated_at`
-	return scanEnquiry(s.pool.QueryRow(ctx, q, id, status, nullIfEmpty(staffID), note))
+	return scanEnquiry(s.pool.QueryRow(ctx, q, args...))
 }
 
 // --- Newsletter --------------------------------------------------------------
 
 // Subscribe records consent, reviving a previously unsubscribed address rather
-// than creating a duplicate row.
+// than creating a duplicate row. An address is one subscriber per business
+// (idx_newsletter_email), so signing up to a second business adds a row.
 func (s *Store) Subscribe(ctx context.Context, email, source string) (*enquiriesapi.NewsletterSubscriber, error) {
 	const q = `
-		INSERT INTO newsletter_subscribers (email, source)
-		VALUES ($1, $2)
-		ON CONFLICT (lower(email)) DO UPDATE
+		INSERT INTO newsletter_subscribers (email, source, business_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (business_id, lower(email)) DO UPDATE
 		SET unsubscribed_at = NULL,
 		    consented_at    = now(),
 		    source          = EXCLUDED.source
 		RETURNING id::text, email, source, consented_at, unsubscribed_at`
 	var n enquiriesapi.NewsletterSubscriber
-	if err := s.pool.QueryRow(ctx, q, email, source).
+	if err := s.pool.QueryRow(ctx, q, email, source, tenant.BusinessParam(ctx)).
 		Scan(&n.ID, &n.Email, &n.Source, &n.ConsentedAt, &n.UnsubscribedAt); err != nil {
 		return nil, fmt.Errorf("subscribe %s: %w", email, err)
 	}
@@ -164,10 +182,12 @@ func (s *Store) Subscribe(ctx context.Context, email, source string) (*enquiries
 
 // Unsubscribe stamps the withdrawal. Unknown addresses are treated as success
 // so the endpoint cannot be used to probe who is subscribed.
+// Only this business's subscription is withdrawn.
 func (s *Store) Unsubscribe(ctx context.Context, email string) error {
-	const q = `UPDATE newsletter_subscribers SET unsubscribed_at = now()
-	           WHERE lower(email) = lower($1) AND unsubscribed_at IS NULL`
-	if _, err := s.pool.Exec(ctx, q, email); err != nil {
+	cond, args := businessCond(ctx, []any{email})
+	q := `UPDATE newsletter_subscribers SET unsubscribed_at = now()
+	           WHERE lower(email) = lower($1) AND unsubscribed_at IS NULL` + cond
+	if _, err := s.pool.Exec(ctx, q, args...); err != nil {
 		return fmt.Errorf("unsubscribe %s: %w", email, err)
 	}
 	return nil

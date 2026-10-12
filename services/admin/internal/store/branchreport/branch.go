@@ -4,15 +4,19 @@ import (
 	"context"
 	"time"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin/adminapi"
 )
 
 // BranchInfoByID returns just enough of a branch to enforce scope and label
 // reports — used instead of depending on the tenancy package directly.
 func (s *Repo) BranchInfoByID(ctx context.Context, branchID string) (*adminapi.BranchInfo, error) {
-	const q = `SELECT id, name, status, created_at FROM branches WHERE id = $1`
+	// Another business's branch reads as not found, never as forbidden: the
+	// caller should not learn that it exists.
+	const q = `SELECT id, name, status, created_at FROM branches
+		WHERE id = $1 AND (NOT $2::boolean OR business_id IS NOT DISTINCT FROM $3::uuid)`
 	var b adminapi.BranchInfo
-	err := s.pool.QueryRow(ctx, q, branchID).Scan(&b.ID, &b.Name, &b.Status, &b.CreatedAt)
+	err := s.pool.QueryRow(ctx, q, branchID, tenant.Scoped(ctx), tenant.BusinessParam(ctx)).Scan(&b.ID, &b.Name, &b.Status, &b.CreatedAt)
 	if err != nil {
 		return nil, err
 	}

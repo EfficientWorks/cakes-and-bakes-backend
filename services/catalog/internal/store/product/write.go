@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"bakehouse/pkg/strx"
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/store/shared"
 )
@@ -24,15 +25,16 @@ func (s *Repo) CreateProduct(ctx context.Context, p catalogapi.Product) (*catalo
 		production_station, allergen_flags, dietary_flags, occasion_tags, freshness_note,
 		ingredients_note, returns_note, disclaimer, is_best_seller, sort_order, price_floor_cents, price_ceiling_cents,
 		is_active, available_from, available_until, show_on_pos, show_on_website, pricing_mode,
-		min_prep_time, min_prep_time_unit, max_prep_time, max_prep_time_unit, video_url)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
+		min_prep_time, min_prep_time_unit, max_prep_time, max_prep_time_unit, video_url, business_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
 		RETURNING id`
 	var id string
 	err = tx.QueryRow(ctx, q, p.CategoryID, p.Name, p.Slug, p.Description, p.BasePriceCents, orDefault(p.LeadTime, 2), strx.OrDefault(p.LeadTimeUnit, "hours"),
 		p.ProductionStation, strx.OrEmptySlice(p.AllergenFlags), strx.OrEmptySlice(p.DietaryFlags), strx.OrEmptySlice(p.OccasionTags),
 		p.FreshnessNote, p.IngredientsNote, p.ReturnsNote, p.Disclaimer, p.IsBestSeller, p.SortOrder, p.PriceFloorCents, p.PriceCeilingCents,
 		p.IsActive, p.AvailableFrom, p.AvailableUntil, p.ShowOnPos, p.ShowOnWebsite, p.EffectivePricingMode(),
-		p.MinPrepTime, prepUnit(p.MinPrepTimeUnit), p.MaxPrepTime, prepUnit(p.MaxPrepTimeUnit), p.VideoURL).
+		p.MinPrepTime, prepUnit(p.MinPrepTimeUnit), p.MaxPrepTime, prepUnit(p.MaxPrepTimeUnit), p.VideoURL,
+		tenant.BusinessParam(ctx)).
 		Scan(&id)
 	if err != nil {
 		// Classified rather than wrapped raw: a reused slug and a category id
@@ -50,7 +52,8 @@ func (s *Repo) CreateProduct(ctx context.Context, p catalogapi.Product) (*catalo
 	// stating intent, so we only fill in the default when the field was
 	// entirely absent (nil / zero-length slice).
 	if len(p.BranchIds) == 0 {
-		branchRows, err := tx.Query(ctx, `SELECT id FROM branches WHERE status = 'active'`)
+		branchRows, err := tx.Query(ctx,
+			`SELECT id FROM branches WHERE status = 'active' AND business_id IS NOT DISTINCT FROM $1`, tenant.BusinessParam(ctx))
 		if err != nil {
 			return nil, fmt.Errorf("fetch active branches for default mapping: %w", err)
 		}
@@ -93,12 +96,13 @@ func (s *Repo) UpdateProduct(ctx context.Context, id string, p catalogapi.Produc
 			is_active=$21, available_from=$22, available_until=$23,
 			show_on_pos=$24, show_on_website=$25, pricing_mode=$26,
 			min_prep_time=$27, min_prep_time_unit=$28, max_prep_time=$29, max_prep_time_unit=$30, video_url=$31, updated_at=NOW()
-		WHERE id = $1 AND deleted_at IS NULL`
+		WHERE id = $1 AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $32`
 	tag, err := tx.Exec(ctx, q, id, p.CategoryID, p.Name, p.Slug, p.Description, p.BasePriceCents, orDefault(p.LeadTime, 2), strx.OrDefault(p.LeadTimeUnit, "hours"),
 		p.ProductionStation, strx.OrEmptySlice(p.AllergenFlags), strx.OrEmptySlice(p.DietaryFlags), strx.OrEmptySlice(p.OccasionTags),
 		p.FreshnessNote, p.IngredientsNote, p.ReturnsNote, p.Disclaimer, p.IsBestSeller, p.SortOrder, p.PriceFloorCents, p.PriceCeilingCents,
 		p.IsActive, p.AvailableFrom, p.AvailableUntil, p.ShowOnPos, p.ShowOnWebsite, p.EffectivePricingMode(),
-		p.MinPrepTime, prepUnit(p.MinPrepTimeUnit), p.MaxPrepTime, prepUnit(p.MaxPrepTimeUnit), p.VideoURL)
+		p.MinPrepTime, prepUnit(p.MinPrepTimeUnit), p.MaxPrepTime, prepUnit(p.MaxPrepTimeUnit), p.VideoURL,
+		tenant.BusinessParam(ctx))
 	if err != nil {
 		if known := shared.Classify(err); known != err {
 			return nil, known
@@ -178,9 +182,9 @@ func writeProductChildren(ctx context.Context, tx pgx.Tx, productID string, p ca
 	for _, g := range p.ModifierGroups {
 		var groupID string
 		err := tx.QueryRow(ctx, `
-			INSERT INTO modifier_groups (product_id, name, type, is_required, min_select, max_select, sort_order)
-			VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-			productID, g.Name, g.Type, g.IsRequired, g.MinSelect, g.MaxSelect, g.SortOrder).Scan(&groupID)
+			INSERT INTO modifier_groups (product_id, name, type, is_required, min_select, max_select, sort_order, business_id)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+			productID, g.Name, g.Type, g.IsRequired, g.MinSelect, g.MaxSelect, g.SortOrder, tenant.BusinessParam(ctx)).Scan(&groupID)
 		if err != nil {
 			return fmt.Errorf("insert modifier group: %w", err)
 		}
@@ -327,7 +331,8 @@ func (s *Repo) ReplaceProductVariants(ctx context.Context, productID string, var
 }
 
 func (s *Repo) SoftDeleteProduct(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE products SET deleted_at = NOW(), is_active = false, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id)
+	tag, err := s.pool.Exec(ctx, `UPDATE products SET deleted_at = NOW(), is_active = false, updated_at = NOW()
+		  WHERE id = $1 AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $2`, id, tenant.BusinessParam(ctx))
 	if err != nil {
 		return err
 	}

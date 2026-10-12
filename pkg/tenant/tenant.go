@@ -26,7 +26,8 @@ func HasPermission(claims *auth.StaffClaims, permission string) bool {
 }
 
 // CanAccessBranch reports whether the staff member may act on the given
-// branch. A brand-scoped role (super admin, finance) can access every branch;
+// branch. A brand-scoped role (super admin, finance) can access every branch
+// of its own business (see SetBranchBusinessLookup);
 // a branch-scoped role must match the branch exactly (RBAC-02: a user may hold different roles at different
 // branches — scope is resolved per request, never cached as one global role).
 func CanAccessBranch(claims *auth.StaffClaims, scopeIDs ...string) bool {
@@ -43,7 +44,7 @@ func CanAccessBranch(claims *auth.StaffClaims, scopeIDs ...string) bool {
 		}
 		switch ra.ScopeType {
 		case ScopeBrand:
-			return true
+			return branchInBusiness(branchID, claims.BusinessID)
 		case ScopeBranch:
 			if ra.BranchID != nil && *ra.BranchID == branchID {
 				return true

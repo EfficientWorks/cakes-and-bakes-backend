@@ -467,6 +467,15 @@ func callerScope(claims *auth.StaffClaims) string {
 
 func (s *Service) requireCustomerAccess(ctx context.Context, claims *auth.StaffClaims, customerID string) error {
 	if tenant.IsBrandScoped(claims) {
+		// Every customer of the caller's business — and only those: the
+		// scoped read does not find another business's customer, so notes,
+		// tags and order history answer 404 for it like the record does.
+		if _, err := s.store.GetCustomerDetail(ctx, customerID, ""); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return apperr.NotFound("Customer not found.")
+			}
+			return apperr.Internal(err)
+		}
 		return nil
 	}
 	for _, ra := range claims.RoleAssignments {

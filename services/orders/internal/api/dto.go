@@ -53,9 +53,20 @@ type priceSummaryDTOType struct {
 	DeliveryMessage   string `json:"deliveryMessage,omitempty"`
 }
 
+// defaultCurrency is shown for amounts with no currency recorded: the
+// product's launch market.
+const defaultCurrency = "GBP"
+
+func currencyOr(c string) string {
+	if c == "" {
+		return defaultCurrency
+	}
+	return c
+}
+
 func priceSummaryDTO(p *ordersapi.PriceSummary) priceSummaryDTOType {
 	if p == nil {
-		return priceSummaryDTOType{Currency: "USD"}
+		return priceSummaryDTOType{Currency: defaultCurrency}
 	}
 	var discountPct float64
 	if p.DiscountPct != nil {
@@ -77,7 +88,7 @@ func priceSummaryDTO(p *ordersapi.PriceSummary) priceSummaryDTOType {
 	return priceSummaryDTOType{
 		SubtotalCents: p.SubtotalCents, DiscountCents: p.DiscountCents, DiscountPct: discountPct,
 		DeliveryFeeCents: p.DeliveryFeeCents, TaxCents: p.TaxCents, TaxPct: taxPct,
-		TaxName: taxLabel(p.TaxName), ServiceChargeCents: p.ServiceChargeCents, TipCents: p.TipCents, TotalCents: p.TotalCents, Currency: "USD",
+		TaxName: taxLabel(p.TaxName), ServiceChargeCents: p.ServiceChargeCents, TipCents: p.TipCents, TotalCents: p.TotalCents, Currency: currencyOr(p.Currency),
 		DeliveryAvailable: p.DeliveryAvailable, DeliveryMessage: p.DeliveryMessage,
 	}
 }
@@ -651,10 +662,7 @@ func orderDTO(o *ordersapi.Order) orderDTOType {
 		billIDs = []string{}
 	}
 
-	currency := o.Currency
-	if currency == "" {
-		currency = "USD"
-	}
+	currency := currencyOr(o.Currency)
 
 	out := orderDTOType{
 		ID: o.ID, Reference: o.Reference, BillNo: o.BillNo, OrderNo: o.BillNo, BranchID: o.BranchID,
@@ -681,6 +689,7 @@ func orderDTO(o *ordersapi.Order) orderDTOType {
 			SubtotalCents: o.SubtotalCents, DiscountCents: o.DiscountCents, DiscountPct: discountPct,
 			DeliveryFeeCents: o.DeliveryFeeCents, TaxCents: o.TaxCents, TaxPct: taxPct,
 			ServiceChargeCents: o.ServiceChargeCents, TipCents: o.TipCents, TotalCents: o.TotalCents,
+			Currency: currency,
 		}),
 		TotalCents:         o.TotalCents,
 		ServiceChargeCents: o.ServiceChargeCents,

@@ -9,6 +9,7 @@ import (
 	"bakehouse/pkg/email"
 	"bakehouse/pkg/httpx"
 	"bakehouse/pkg/realtime"
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin"
 	"bakehouse/services/business"
 	"bakehouse/services/catalog"
@@ -31,6 +32,9 @@ type services struct {
 	admin        *admin.Module
 	enquiries    *enquiries.Module
 	business     *business.Module
+	// storefrontBusiness is the slug public requests act for when they do not
+	// send X-Business (STOREFRONT_BUSINESS).
+	storefrontBusiness string
 }
 
 // buildRouter assembles the full route tree.
@@ -55,10 +59,9 @@ func buildRouter(
 	router.Get(email.LogoPath, email.LogoHandler)
 
 	router.Route("/v1", func(v1 chi.Router) {
-		svc.identity.MountPublic(v1)
+		svc.identity.MountStaffAuth(v1)
 		svc.orders.MountPublicTracking(v1)
 		svc.payments.MountWebhook(v1)
-		svc.enquiries.MountPublic(v1)
 		// The emzo team's platform API: register businesses and their owner
 		// logins. Guarded by PLATFORM_API_KEY, not by staff auth.
 		svc.business.MountPlatform(v1)
@@ -67,28 +70,38 @@ func buildRouter(
 		// straight into <img> tags on a public page, and no auth applies.
 		svc.catalog.MountPublicMedia(v1)
 
-		// /storefront is shared across services — each Mount call adds its
-		// own flat routes onto the same router (chi panics if two callers
-		// each Route() a fresh subrouter at an identical prefix).
-		// OptionalCustomer, not RequireCustomer: guest checkout must keep
-		// working, but a signed-in customer resolves their cart by customer
-		// id rather than by the X-Cart-Token header.
-		v1.Route("/storefront", func(sf chi.Router) {
-			sf.Use(auth.OptionalCustomer(customerTokens))
-			// Live catalogue (and, signed in, own-order) updates for the website.
-			sf.Get("/events", storefrontEventsHandler(realtime.Default, customerTokens))
-			svc.franchise.MountStorefront(sf)
-			svc.catalog.MountStorefront(sf)
-			svc.orders.MountStorefront(sf)
-			svc.payments.MountStorefront(sf)
-		})
+		// Customer-facing routes act for one business: the X-Business header,
+		// else STOREFRONT_BUSINESS. Webhooks, the platform API, media, tracking
+		// and staff sign-in stay outside: staff routes take the business from
+		// the staff token instead (tenant.BusinessFromStaff).
+		v1.Group(func(pub chi.Router) {
+			pub.Use(svc.business.ResolveBusiness(svc.storefrontBusiness))
+			svc.identity.MountCustomerAuth(pub)
+			svc.enquiries.MountPublic(pub)
 
-		// /account is shared between identity (profile, addresses,
-		// recipients) and orders (history, self-service).
-		v1.Route("/account", func(account chi.Router) {
-			account.Use(auth.RequireCustomer(customerTokens))
-			svc.identity.MountAccount(account)
-			svc.orders.MountAccount(account)
+			// /storefront is shared across services — each Mount call adds its
+			// own flat routes onto the same router (chi panics if two callers
+			// each Route() a fresh subrouter at an identical prefix).
+			// OptionalCustomer, not RequireCustomer: guest checkout must keep
+			// working, but a signed-in customer resolves their cart by customer
+			// id rather than by the X-Cart-Token header.
+			pub.Route("/storefront", func(sf chi.Router) {
+				sf.Use(auth.OptionalCustomer(customerTokens))
+				// Live catalogue (and, signed in, own-order) updates for the website.
+				sf.Get("/events", storefrontEventsHandler(realtime.Default, customerTokens))
+				svc.franchise.MountStorefront(sf)
+				svc.catalog.MountStorefront(sf)
+				svc.orders.MountStorefront(sf)
+				svc.payments.MountStorefront(sf)
+			})
+
+			// /account is shared between identity (profile, addresses,
+			// recipients) and orders (history, self-service).
+			pub.Route("/account", func(account chi.Router) {
+				account.Use(auth.RequireCustomer(customerTokens))
+				svc.identity.MountAccount(account)
+				svc.orders.MountAccount(account)
+			})
 		})
 
 		/*
@@ -105,10 +118,10 @@ func buildRouter(
 		// The session guard ends a till's session the moment its staff account
 		// is deactivated or its store stops trading (see identity.StaffSessionGuard).
 		sessionGuard := svc.identity.StaffSessionGuard()
-		v1.With(auth.RequireStaffOrQueryToken(staffTokens), sessionGuard).Get("/pos/events", posEventsHandler(realtime.Default))
+		v1.With(auth.RequireStaffOrQueryToken(staffTokens), sessionGuard, tenant.BusinessFromStaff).Get("/pos/events", posEventsHandler(realtime.Default))
 
 		v1.Route("/pos", func(posRouter chi.Router) {
-			posRouter.Use(auth.RequireStaff(staffTokens), sessionGuard)
+			posRouter.Use(auth.RequireStaff(staffTokens), sessionGuard, tenant.BusinessFromStaff)
 			svc.identity.MountPOS(posRouter)
 			svc.catalog.MountPOS(posRouter)
 			svc.orders.MountPOS(posRouter)
@@ -123,9 +136,9 @@ func buildRouter(
 		 * a browser EventSource cannot send an Authorization header.
 		 */
 		v1.Route("/kds", func(kdsRouter chi.Router) {
-			kdsRouter.With(auth.RequireStaffOrQueryToken(staffTokens), sessionGuard).Get("/events", svc.orders.KDSEventsHandler())
+			kdsRouter.With(auth.RequireStaffOrQueryToken(staffTokens), sessionGuard, tenant.BusinessFromStaff).Get("/events", svc.orders.KDSEventsHandler())
 			kdsRouter.Group(func(g chi.Router) {
-				g.Use(auth.RequireStaff(staffTokens), sessionGuard)
+				g.Use(auth.RequireStaff(staffTokens), sessionGuard, tenant.BusinessFromStaff)
 				svc.franchise.MountKDS(g)
 				svc.orders.MountKDS(g)
 			})
@@ -134,10 +147,10 @@ func buildRouter(
 		// The admin console's live stream. Registered beside /admin rather than
 		// inside it: the /admin router requires the Authorization header, and a
 		// browser EventSource can only pass the token as ?accessToken=.
-		v1.With(auth.RequireStaffOrQueryToken(staffTokens)).Get("/admin/events", adminEventsHandler(realtime.Default))
+		v1.With(auth.RequireStaffOrQueryToken(staffTokens), tenant.BusinessFromStaff).Get("/admin/events", adminEventsHandler(realtime.Default))
 
 		v1.Route("/admin", func(adminRouter chi.Router) {
-			adminRouter.Use(auth.RequireStaff(staffTokens))
+			adminRouter.Use(auth.RequireStaff(staffTokens), tenant.BusinessFromStaff)
 
 			svc.identity.MountAdmin(adminRouter)
 			svc.franchise.MountAdmin(adminRouter)
@@ -147,6 +160,7 @@ func buildRouter(
 			svc.admin.MountAdminCustomers(adminRouter)
 			svc.admin.MountAdminInvoices(adminRouter)
 			svc.enquiries.MountAdmin(adminRouter)
+			svc.business.MountAdmin(adminRouter)
 			adminRouter.Get("/integrations", integrationsHandler(svc.integrations))
 
 			// /admin/branches is shared between franchise (branch CRUD),

@@ -146,7 +146,18 @@ func (h *Handler) ServeVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := chi.URLParam(r, "videoId")
-	info, err := h.videos.Stat(r.Context(), id)
+	// Stored in R2: the file is served from its public host, which handles
+	// Range requests itself. Old links that point here are redirected.
+	if public, ok := h.videos.(media.PublicDelivery); ok {
+		http.Redirect(w, r, public.PublicURL(id), http.StatusMovedPermanently)
+		return
+	}
+	db, ok := h.videos.(*media.VideoStore)
+	if !ok {
+		httpx.WriteError(w, r, apperr.NotFound("Video not found."))
+		return
+	}
+	info, err := db.Stat(r.Context(), id)
 	if err != nil {
 		httpx.WriteError(w, r, apperr.NotFound("Video not found."))
 		return
@@ -155,5 +166,5 @@ func (h *Handler) ServeVideo(w http.ResponseWriter, r *http.Request) {
 	// sniff a type. An id is never reused, so the bytes behind it never change.
 	w.Header().Set("Content-Type", info.ContentType)
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	http.ServeContent(w, r, "", info.ModTime, h.videos.NewReader(r.Context(), id, info.Size))
+	http.ServeContent(w, r, "", info.ModTime, db.NewReader(r.Context(), id, info.Size))
 }

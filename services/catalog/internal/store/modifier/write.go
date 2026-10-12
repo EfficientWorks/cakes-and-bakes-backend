@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/store/shared"
 )
@@ -25,10 +26,10 @@ func (s *Repo) SaveModifierGroup(ctx context.Context, g catalogapi.ModifierGroup
 	if id == "" {
 		err = tx.QueryRow(ctx, `
 			INSERT INTO modifier_groups (product_id, name, display_name, kind, type, is_required,
-				allow_multiple, min_select, max_select, sort_order)
-			VALUES (NULL,$1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+				allow_multiple, min_select, max_select, sort_order, business_id)
+			VALUES (NULL,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
 			g.Name, g.DisplayName, g.Kind, g.Type, g.IsRequired,
-			g.AllowMultiple, g.MinSelect, maxSelect, g.SortOrder).Scan(&id)
+			g.AllowMultiple, g.MinSelect, maxSelect, g.SortOrder, tenant.BusinessParam(ctx)).Scan(&id)
 		if err != nil {
 			return "", fmt.Errorf("insert modifier group: %w", err)
 		}
@@ -37,9 +38,9 @@ func (s *Repo) SaveModifierGroup(ctx context.Context, g catalogapi.ModifierGroup
 			UPDATE modifier_groups
 			   SET name=$2, display_name=$3, kind=$4, type=$5, is_required=$6,
 			       allow_multiple=$7, min_select=$8, max_select=$9, sort_order=$10
-			 WHERE id=$1`,
+			 WHERE id=$1 AND business_id IS NOT DISTINCT FROM $11`,
 			id, g.Name, g.DisplayName, g.Kind, g.Type, g.IsRequired,
-			g.AllowMultiple, g.MinSelect, maxSelect, g.SortOrder)
+			g.AllowMultiple, g.MinSelect, maxSelect, g.SortOrder, tenant.BusinessParam(ctx))
 		if err != nil {
 			return "", fmt.Errorf("update modifier group: %w", err)
 		}
@@ -84,7 +85,7 @@ func (s *Repo) SaveModifierGroup(ctx context.Context, g catalogapi.ModifierGroup
 
 func (s *Repo) DeleteModifierGroup(ctx context.Context, id string) error {
 	// Options and the product links both cascade, so one delete is enough.
-	tag, err := s.pool.Exec(ctx, `DELETE FROM modifier_groups WHERE id = $1`, id)
+	tag, err := s.pool.Exec(ctx, `DELETE FROM modifier_groups WHERE id = $1 AND business_id IS NOT DISTINCT FROM $2`, id, tenant.BusinessParam(ctx))
 	if err != nil {
 		return err
 	}

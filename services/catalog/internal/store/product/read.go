@@ -4,19 +4,20 @@ import (
 	"context"
 	"fmt"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 )
 
 func (s *Repo) GetProductByID(ctx context.Context, id string) (*catalogapi.Product, error) {
-	return s.getProduct(ctx, productSelect+" AND p.id = $1", id)
+	return s.getProduct(ctx, productScoped+" AND p.id = $2", id)
 }
 
 func (s *Repo) GetProductBySlug(ctx context.Context, slug string) (*catalogapi.Product, error) {
-	return s.getProduct(ctx, productSelect+" AND p.slug = $1", slug)
+	return s.getProduct(ctx, productScoped+" AND p.slug = $2", slug)
 }
 
 func (s *Repo) getProduct(ctx context.Context, query, arg string) (*catalogapi.Product, error) {
-	p, err := scanProduct(s.pool.QueryRow(ctx, query, arg))
+	p, err := scanProduct(s.pool.QueryRow(ctx, query, tenant.BusinessParam(ctx), arg))
 	if err != nil {
 		return nil, err
 	}
@@ -27,8 +28,8 @@ func (s *Repo) getProduct(ctx context.Context, query, arg string) (*catalogapi.P
 }
 
 func (s *Repo) ListProducts(ctx context.Context, categoryID, occasion string, includeInactive bool) ([]catalogapi.Product, error) {
-	q := productSelect
-	args := []interface{}{}
+	q := productScoped
+	args := []interface{}{tenant.BusinessParam(ctx)}
 	if categoryID != "" {
 		args = append(args, categoryID)
 		q += fmt.Sprintf(" AND p.category_id = $%d", len(args))
@@ -73,8 +74,8 @@ func (s *Repo) ListProducts(ctx context.Context, categoryID, occasion string, in
 // ListProductsAdminPage returns one page and the number of products the
 // filters match, which is what the pager needs to know how many pages exist.
 func (s *Repo) ListProductsAdminPage(ctx context.Context, q AdminProductQuery) ([]catalogapi.Product, int, error) {
-	where := ""
-	args := []interface{}{}
+	where := " AND p.business_id IS NOT DISTINCT FROM $1"
+	args := []interface{}{tenant.BusinessParam(ctx)}
 	if q.CategoryID != "" {
 		args = append(args, q.CategoryID)
 		where += fmt.Sprintf(" AND p.category_id = $%d", len(args))

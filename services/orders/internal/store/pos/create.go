@@ -115,8 +115,10 @@ func (s *Repo) CreatePOSOrder(
 					mobileParam = &custMobile
 				}
 				if err := s.pool.QueryRow(ctx, `
-					INSERT INTO customers (branch_id, customer_type, first_name, last_name, email, mobile_number, password_hash, is_verified, created_at, updated_at)
-					VALUES ($1, 'pos', $2, $3, $4, $5, '', true, NOW(), NOW())
+					INSERT INTO customers (branch_id, customer_type, first_name, last_name, email, mobile_number, password_hash, is_verified, created_at, updated_at, business_id)
+					VALUES ($1, 'pos', $2, $3, $4, $5, '', true, NOW(), NOW(),
+						-- The store's business owns its walk-ins.
+						(SELECT business_id FROM branches WHERE id = $1::uuid))
 					RETURNING id`, branchID, first, last, emailParam, mobileParam).Scan(&newCID); err != nil {
 					// An email that is another customer's is the till's to
 					// fix, not something to drop without a word.
@@ -235,7 +237,9 @@ func (s *Repo) CreatePOSOrder(
 			COALESCE(NULLIF($12, '')::time, (NOW() AT TIME ZONE (SELECT timezone FROM branches WHERE id = $2::uuid))::time(0)),
 			COALESCE(NULLIF($13, '')::time, (COALESCE(NULLIF($12, '')::time, (NOW() AT TIME ZONE (SELECT timezone FROM branches WHERE id = $2::uuid))::time(0)) + interval '30 minutes')),
 			0,0,0,0,0,
-			0,0,'USD',
+			-- The currency is the store's business's; the orders_set_business
+			-- trigger replaces this placeholder.
+			0,0,'GBP',
 			-- No payment method yet: the till does not know how the order
 			-- will be paid until it takes the money. Written by the payment
 			-- path when the order is settled.

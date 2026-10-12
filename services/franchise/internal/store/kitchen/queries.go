@@ -6,3 +6,7 @@ const centralKitchenSelect = `
 	       COALESCE(ck.manager_name, ''), COALESCE(ck.manager_phone, ''), COALESCE(ck.manager_email, ''),
 	       ck.created_at, ck.updated_at
 	  FROM central_kitchens ck`
+
+// kitchenScoped limits a query to the caller's kitchens. $%d is the business
+// parameter (tenant.BusinessParam).
+const kitchenScoped = `ck.business_id IS NOT DISTINCT FROM $%d`

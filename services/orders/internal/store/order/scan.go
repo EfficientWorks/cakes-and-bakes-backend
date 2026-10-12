@@ -46,6 +46,7 @@ func ScanTargets(o *ordersapi.Order) []any {
 		&o.ReturnAmountCents, &o.ReturnDiscountPct, &o.ReturnDiscountCents,
 		&o.ReturnTaxPct, &o.ReturnTaxCents, &o.ReturnTotalCents,
 		&o.SettledAt, &o.Cancellation,
+		&o.BusinessID,
 	}
 }
 

@@ -9,13 +9,19 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/franchise/franchiseapi"
 )
 
 // GetCentralKitchen reads one kitchen with its store assignment.
 func (s *Repo) GetCentralKitchen(ctx context.Context, id string) (*franchiseapi.CentralKitchen, error) {
-	ck, err := scanCentralKitchen(s.pool.QueryRow(ctx,
-		centralKitchenSelect+` WHERE ck.id = $1 AND ck.deleted_at IS NULL`, id))
+	q := centralKitchenSelect + ` WHERE ck.id = $1 AND ck.deleted_at IS NULL`
+	args := []any{id}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		q += ` AND ` + fmt.Sprintf(kitchenScoped, len(args))
+	}
+	ck, err := scanCentralKitchen(s.pool.QueryRow(ctx, q, args...))
 	if err != nil {
 		return nil, err
 	}
@@ -32,6 +38,9 @@ func (s *Repo) ListCentralKitchens(ctx context.Context, f franchiseapi.CentralKi
 	add := func(cond string, v any) {
 		args = append(args, v)
 		where = append(where, fmt.Sprintf(cond, len(args)))
+	}
+	if tenant.Scoped(ctx) {
+		add(kitchenScoped, tenant.BusinessParam(ctx))
 	}
 	if st := strings.ToLower(strings.TrimSpace(f.Status)); st != "" && st != "all" {
 		add("ck.status = $%d", st)
@@ -127,9 +136,15 @@ func (s *Repo) ListBranchRefs(ctx context.Context, ids []string) ([]franchiseapi
 	if len(ids) == 0 {
 		return out, nil
 	}
-	rows, err := s.pool.Query(ctx, `
-		SELECT id::text, name, code, location_code, status, timezone
-		  FROM branches WHERE id::text = ANY($1) ORDER BY name`, ids)
+	// Another business's stores are left out, so MissingBranchIDs reports
+	// them and a kitchen can never be assigned one.
+	q := `SELECT id::text, name, code, location_code, status, timezone FROM branches WHERE id::text = ANY($1)`
+	args := []any{ids}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		q += ` AND business_id IS NOT DISTINCT FROM $2`
+	}
+	rows, err := s.pool.Query(ctx, q+` ORDER BY name`, args...)
 	if err != nil {
 		return nil, err
 	}

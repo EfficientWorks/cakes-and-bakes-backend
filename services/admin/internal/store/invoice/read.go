@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin/adminapi"
 )
 
@@ -29,6 +30,10 @@ func (s *Repo) ListInvoices(ctx context.Context, f adminapi.InvoiceListFilter) (
 
 	where := []string{"TRUE"}
 	args := []any{}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("i.business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 
 	if f.Search != "" {
 		// The billed party lives on the invoice row now (0053), not in a
@@ -82,12 +87,13 @@ func (s *Repo) ListInvoices(ctx context.Context, f adminapi.InvoiceListFilter) (
 	return out, total, rows.Err()
 }
 
-// GetInvoice returns one invoice with its lines.
+// GetInvoice returns one invoice with its lines. Another business's invoice
+// is pgx.ErrNoRows, as if it did not exist.
 func (s *Repo) GetInvoice(ctx context.Context, id string) (*adminapi.Invoice, error) {
 	row := s.pool.QueryRow(
 		ctx,
-		`SELECT `+invoiceColumns+invoiceFrom+` WHERE i.id = $1`,
-		id,
+		`SELECT `+invoiceColumns+invoiceFrom+` WHERE i.id = $1 AND `+inBusiness("i.business_id", 2),
+		append([]any{id}, businessArgs(ctx)...)...,
 	)
 
 	inv, err := scanInvoice(row)
@@ -138,10 +144,15 @@ func (s *Repo) GetInvoice(ctx context.Context, id string) (*adminapi.Invoice, er
 		inv.Items = append(inv.Items, it)
 	}
 
+	// The disclaimer is the invoice's own business's: every business keeps
+	// its own site_content, and an unfiltered read would pick any one of them.
 	var disclaimer *string
 	if err := s.pool.QueryRow(
 		ctx,
-		`SELECT value FROM site_content WHERE key = 'disclaimer'`,
+		`SELECT value FROM site_content
+		  WHERE key = 'disclaimer'
+		    AND business_id IS NOT DISTINCT FROM (SELECT business_id FROM invoices WHERE id = $1)`,
+		id,
 	).Scan(&disclaimer); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		// No disclaimer configured is not a broken invoice.
 		return nil, err

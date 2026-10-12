@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/store/shared"
 )
@@ -12,7 +13,7 @@ import (
 // of matches, which the grid needs for its result count and pager.
 func (s *Repo) SearchProducts(ctx context.Context, f catalogapi.ProductFilter) ([]catalogapi.Product, int, error) {
 	f = f.Normalise()
-	where, args, priceLo := productFilterWhere(f)
+	where, args, priceLo := productFilterWhere(f, tenant.BusinessParam(ctx))
 
 	countQ := `SELECT count(*) FROM products p JOIN product_categories c ON c.id = p.category_id
 	           WHERE p.deleted_at IS NULL` + where
@@ -62,10 +63,10 @@ func (s *Repo) DistinctFacets(ctx context.Context) (occasions, dietary []string,
 	const q = `
 		SELECT
 		  (SELECT coalesce(array_agg(DISTINCT t), '{}') FROM products, unnest(occasion_tags) t
-		    WHERE deleted_at IS NULL AND is_active = true),
+		    WHERE deleted_at IS NULL AND is_active = true AND business_id IS NOT DISTINCT FROM $1),
 		  (SELECT coalesce(array_agg(DISTINCT d), '{}') FROM products, unnest(dietary_flags) d
-		    WHERE deleted_at IS NULL AND is_active = true)`
-	if err := s.pool.QueryRow(ctx, q).Scan(&occasions, &dietary); err != nil {
+		    WHERE deleted_at IS NULL AND is_active = true AND business_id IS NOT DISTINCT FROM $1)`
+	if err := s.pool.QueryRow(ctx, q, tenant.BusinessParam(ctx)).Scan(&occasions, &dietary); err != nil {
 		return nil, nil, fmt.Errorf("load product facets: %w", err)
 	}
 	return occasions, dietary, nil
@@ -77,8 +78,8 @@ func (s *Repo) DistinctFacets(ctx context.Context) (occasions, dietary []string,
 func (s *Repo) PriceBounds(ctx context.Context) (minCents, maxCents int64, err error) {
 	lo, hi := productPriceExprs("")
 	q := `SELECT coalesce(min(` + lo + `), 0)::bigint, coalesce(max(` + hi + `), 0)::bigint
-	      FROM products p WHERE p.deleted_at IS NULL AND p.is_active = true`
-	if err := s.pool.QueryRow(ctx, q).Scan(&minCents, &maxCents); err != nil {
+	      FROM products p WHERE p.deleted_at IS NULL AND p.is_active = true AND p.business_id IS NOT DISTINCT FROM $1`
+	if err := s.pool.QueryRow(ctx, q, tenant.BusinessParam(ctx)).Scan(&minCents, &maxCents); err != nil {
 		return 0, 0, fmt.Errorf("load price bounds: %w", err)
 	}
 	return minCents, maxCents, nil
@@ -88,22 +89,14 @@ func (s *Repo) PriceBounds(ctx context.Context) (minCents, maxCents int64, err e
 // and returns it with its arguments, so the page query and the count query
 // cannot drift apart. The third value is the SQL for the product's starting
 // price, bound to the same arguments, for the price sorts.
-func productFilterWhere(f catalogapi.ProductFilter) (string, []interface{}, string) {
-	// A product scheduled for a season is simply not in the catalogue outside
-	// it — filtered in SQL rather than after the fact so the result count and
-	// the pager agree with what is actually shown. CURRENT_DATE, not a value
-	// passed in: the grid is "what is on sale now".
-	q := " AND p.is_active = true" +
-		// " AND (p.available_from IS NULL OR p.available_from <= CURRENT_TIMESTAMP)" +
-		// " AND (p.available_until IS NULL OR p.available_until >= CURRENT_TIMESTAMP)" +
-		// A product in a category that is switched off is not for sale either.
-		// Hiding only the category left its products reachable from the grid,
-		// from search and from "you may also love" — so switching a whole
-		// range off did nothing except remove the way in.
+func productFilterWhere(f catalogapi.ProductFilter, business *string) (string, []interface{}, string) {
+	// Only this business's products, only live ones, and only in a live
+	// category: hiding a category alone would leave its products reachable
+	// from search and "you may also love".
+	q := " AND p.business_id IS NOT DISTINCT FROM $1" +
+		" AND p.is_active = true" +
 		" AND c.is_active = true"
-		// " AND (c.available_from IS NULL OR c.available_from <= CURRENT_TIMESTAMP)" +
-		// " AND (c.available_until IS NULL OR c.available_until >= CURRENT_TIMESTAMP)"
-	args := []interface{}{}
+	args := []interface{}{business}
 
 	if f.Search != "" {
 		// Escape the LIKE metacharacters so "50%" or "a_b" typed at the till

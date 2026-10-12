@@ -3,8 +3,10 @@ package network
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin/adminapi"
 )
 
@@ -14,9 +16,14 @@ func (s *Repo) NetworkDashboard(ctx context.Context, today time.Time, branchID s
 	// scope narrows every figure on the dashboard — totals, the live pipeline
 	// (in production / ready / out for delivery) and the league — to one
 	// branch. Empty means "the whole network", which is
-	// what the dashboard always showed before the filters existed.
+	// what the dashboard always showed before the filters existed — of the
+	// caller's own business only.
 	scope := func(alias string, args []any) (string, []any) {
 		clause := ""
+		if tenant.Scoped(ctx) {
+			args = append(args, tenant.BusinessParam(ctx))
+			clause += fmt.Sprintf(" AND %sbusiness_id IS NOT DISTINCT FROM $%d", alias, len(args))
+		}
 		if branchID != "" {
 			args = append(args, branchID)
 			clause += fmt.Sprintf(" AND %sbranch_id = $%d", alias, len(args))
@@ -63,6 +70,10 @@ func (s *Repo) NetworkDashboard(ctx context.Context, today time.Time, branchID s
 	// itself: a branch filter leaves one row.
 	leagueArgs := []any{today}
 	leagueWhere := ""
+	if tenant.Scoped(ctx) {
+		leagueArgs = append(leagueArgs, tenant.BusinessParam(ctx))
+		leagueWhere += fmt.Sprintf(" AND b.business_id IS NOT DISTINCT FROM $%d", len(leagueArgs))
+	}
 	if branchID != "" {
 		leagueArgs = append(leagueArgs, branchID)
 		leagueWhere += fmt.Sprintf(" AND b.id = $%d", len(leagueArgs))
@@ -97,6 +108,10 @@ func (s *Repo) NetworkDashboard(ctx context.Context, today time.Time, branchID s
 func (s *Repo) RevenueTrend(ctx context.Context, branchID, unit string, from, to time.Time) ([]adminapi.RevenueTrendPoint, error) {
 	where := []string{"created_at >= $2", "created_at < $3", "status <> 'cancelled'"}
 	args := []interface{}{unit, from, to}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 	if branchID != "" {
 		args = append(args, branchID)
 		where = append(where, fmt.Sprintf("branch_id = $%d", len(args)))
@@ -150,10 +165,19 @@ func (s *Repo) RevenueTrend(ctx context.Context, branchID, unit string, from, to
 // nothing) unless branchID narrows it to one. Highest revenue first.
 func (s *Repo) RevenueByBranch(ctx context.Context, branchID string, from, to time.Time) ([]adminapi.RevenueTrendBranch, error) {
 	args := []interface{}{from, to}
-	branchWhere := ""
+	conds := []string{}
+	// "Every branch" means every branch of the caller's business.
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		conds = append(conds, fmt.Sprintf("b.business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 	if branchID != "" {
 		args = append(args, branchID)
-		branchWhere = fmt.Sprintf(" WHERE b.id = $%d", len(args))
+		conds = append(conds, fmt.Sprintf("b.id = $%d", len(args)))
+	}
+	branchWhere := ""
+	if len(conds) > 0 {
+		branchWhere = " WHERE " + strings.Join(conds, " AND ")
 	}
 	// An explicitly chosen branch always comes back, even with no sales.
 	keepOne := ""
@@ -211,10 +235,12 @@ func (s *Repo) OutletsToday(ctx context.Context, day time.Time, branchID string)
 		         ON o.branch_id = b.id
 		        AND o.created_at::date = $1::date
 		 WHERE ($2 = '' OR b.id = $2::uuid)
+		   AND (NOT $3::boolean OR b.business_id IS NOT DISTINCT FROM $4::uuid)
 		 GROUP BY b.id, b.name
 		 ORDER BY b.name`
 
-	rows, err := s.pool.Query(ctx, q, day, branchID)
+	// $3/$4 keep a brand-wide caller to their own business's outlets.
+	rows, err := s.pool.Query(ctx, q, day, branchID, tenant.Scoped(ctx), tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, err
 	}

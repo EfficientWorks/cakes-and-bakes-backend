@@ -2907,6 +2907,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/business": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The business the caller's staff account belongs to, with its country's currency, locale, tax and postcode conventions. Read-only: the emzo team changes a business through the platform API.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "The signed-in business",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_business_internal_api.myBusinessDTO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHENTICATED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "NOT_FOUND — the account belongs to no business",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/categories": {
             "get": {
                 "security": [
@@ -16396,6 +16445,73 @@ const docTemplate = `{
                     "description": "At least 12 characters.",
                     "type": "string",
                     "example": "correct-horse-battery"
+                }
+            }
+        },
+        "services_business_internal_api.myBusinessDTO": {
+            "type": "object",
+            "properties": {
+                "contactEmail": {
+                    "type": "string",
+                    "example": "hello@cakesandbakes.co.uk"
+                },
+                "contactPhone": {
+                    "type": "string",
+                    "example": "+44 20 7946 0000"
+                },
+                "country": {
+                    "$ref": "#/definitions/services_business_internal_api.countryDTO"
+                },
+                "countryCode": {
+                    "type": "string",
+                    "example": "GB"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "GBP"
+                },
+                "defaultTaxRatePct": {
+                    "type": "number",
+                    "example": 20
+                },
+                "id": {
+                    "type": "string",
+                    "example": "5b0c6e9e-2f0a-4c55-9d8e-1f2a3b4c5d6e"
+                },
+                "locale": {
+                    "type": "string",
+                    "example": "en-GB"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Cakes \u0026 Bakes"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "cakes-and-bakes"
+                },
+                "status": {
+                    "description": "active | suspended",
+                    "type": "string",
+                    "example": "active"
+                },
+                "taxMode": {
+                    "type": "string",
+                    "example": "inclusive"
+                },
+                "taxName": {
+                    "type": "string",
+                    "example": "VAT"
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Europe/London"
+                },
+                "updatedAt": {
+                    "type": "string"
                 }
             }
         },

@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/store/shared"
 )
@@ -14,8 +15,8 @@ func (s *Repo) ListCategories(ctx context.Context) ([]catalogapi.Category, error
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, name, slug, description, image_url, image_alt_text, sort_order, is_active, color_code
 		FROM product_categories
-		 WHERE is_active = true
-		 ORDER BY sort_order`)
+		 WHERE is_active = true AND business_id IS NOT DISTINCT FROM $1
+		 ORDER BY sort_order`, tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -42,12 +43,12 @@ func (s *Repo) ListCategoriesForBranch(ctx context.Context, branchID string) ([]
 		SELECT c.id, c.name, c.slug, c.description, c.image_url, c.image_alt_text, c.sort_order, c.is_active, c.color_code
 		  FROM product_categories c
 		  JOIN branch_category_rules bcr ON bcr.category_id = c.id AND bcr.branch_id = $1 AND bcr.branch_enabled
-		 WHERE c.is_active = true
+		 WHERE c.is_active = true AND c.business_id IS NOT DISTINCT FROM $2
 		   AND EXISTS (SELECT 1
 		                 FROM products p
 		                 JOIN branch_product_rules bpr ON bpr.product_id = p.id AND bpr.branch_id = $1 AND bpr.branch_enabled
 		                WHERE p.category_id = c.id AND p.deleted_at IS NULL AND p.is_active = true)
-		 ORDER BY c.sort_order`, branchID)
+		 ORDER BY c.sort_order`, branchID, tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +70,7 @@ func (s *Repo) GetCategoryBySlug(ctx context.Context, slug string) (*catalogapi.
 	var c catalogapi.Category
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, name, slug, description, sort_order, is_active, image_url, image_alt_text, color_code
-		FROM product_categories WHERE slug = $1`, slug).
+		FROM product_categories WHERE slug = $1 AND business_id IS NOT DISTINCT FROM $2`, slug, tenant.BusinessParam(ctx)).
 		Scan(&c.ID, &c.Name, &c.Slug, &c.Description, &c.SortOrder, &c.IsActive, &c.ImageURL, &c.ImageAltText, &c.ColorCode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, shared.ErrNotFound
@@ -81,7 +82,7 @@ func (s *Repo) GetCategoryByID(ctx context.Context, id string) (*catalogapi.Cate
 	var c catalogapi.Category
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, name, slug, description, image_url, image_alt_text, sort_order, is_active, color_code
-		FROM product_categories WHERE id = $1`, id).
+		FROM product_categories WHERE id = $1 AND business_id IS NOT DISTINCT FROM $2`, id, tenant.BusinessParam(ctx)).
 		Scan(&c.ID, &c.Name, &c.Slug, &c.Description, &c.ImageURL, &c.ImageAltText, &c.SortOrder, &c.IsActive, &c.ColorCode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, shared.ErrNotFound
@@ -96,7 +97,7 @@ func (s *Repo) GetCategoryByID(ctx context.Context, id string) (*catalogapi.Cate
 // those branches; nil means the whole master catalogue.
 func (s *Repo) ListCategoriesAdmin(ctx context.Context, branchIDs []string) ([]CategoryRow, error) {
 	q := categoryAdminList + ` ORDER BY pc.sort_order, pc.name`
-	args := []any{}
+	args := []any{tenant.BusinessParam(ctx)}
 	if branchIDs != nil {
 		q = categoryMappedToBranches + ` ORDER BY pc.sort_order, pc.name`
 		args = append(args, branchIDs)
@@ -126,11 +127,11 @@ func (s *Repo) ListCategoriesAdmin(ctx context.Context, branchIDs []string) ([]C
 }
 
 func (s *Repo) GetCategoryAdmin(ctx context.Context, id string) (*CategoryRow, error) {
-	const q = categoryAdminList + ` HAVING pc.id = $1`
+	const q = categoryAdminList + ` HAVING pc.id = $2`
 	var c catalogapi.Category
 	var w catalogapi.CategoryWrite
 	var branchIDs []string
-	err := s.pool.QueryRow(ctx, q, id).Scan(
+	err := s.pool.QueryRow(ctx, q, tenant.BusinessParam(ctx), id).Scan(
 		&c.ID, &c.Name, &c.Slug, &c.Description, &c.ImageURL, &c.ImageAltText,
 		&c.SortOrder, &c.IsActive, &w.AvailableFrom, &w.AvailableUntil, &c.ColorCode,
 		&branchIDs,
@@ -157,6 +158,6 @@ func (s *Repo) GetCategoryAdmin(ctx context.Context, id string) (*CategoryRow, e
 func (s *Repo) CountProductsInCategory(ctx context.Context, id string) (live int, total int, err error) {
 	err = s.pool.QueryRow(ctx,
 		`SELECT count(*) FILTER (WHERE deleted_at IS NULL), count(*)
-		   FROM products WHERE category_id = $1`, id).Scan(&live, &total)
+		   FROM products WHERE category_id = $1 AND business_id IS NOT DISTINCT FROM $2`, id, tenant.BusinessParam(ctx)).Scan(&live, &total)
 	return live, total, err
 }

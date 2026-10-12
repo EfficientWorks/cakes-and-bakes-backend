@@ -42,7 +42,12 @@ func resolveStaffBranch(claims *auth.StaffClaims, explicitBranchID string) (stri
 
 	explicit := strings.TrimSpace(explicitBranchID)
 	if explicit != "" {
+		// Brand-wide is every store of the caller's own business, which
+		// CanAccessBranch checks; another business's store id is refused.
 		if tenant.IsBrandScoped(claims) {
+			if !tenant.CanAccessBranch(claims, explicit) {
+				return "", apperr.PermissionDenied("You do not have access to this outlet.")
+			}
 			return explicit, nil
 		}
 		for _, ra := range claims.RoleAssignments {
@@ -234,7 +239,8 @@ func (s *Service) GetPOSCustomer(ctx context.Context, claims *auth.StaffClaims, 
 		return nil, apperr.NotFound("Customer not found.")
 	}
 
-	// Enforce branch isolation unless brand-scoped
+	// Enforce branch isolation unless brand-scoped; a brand-wide caller is
+	// still held to its business, as GetPOSCustomerByID only finds those.
 	if !tenant.IsBrandScoped(claims) {
 		if customer.BranchID == nil || *customer.BranchID != branchID {
 			return nil, apperr.PermissionDenied("You do not have access to this customer.")
@@ -363,6 +369,7 @@ func (s *Service) UpdatePOSCustomer(
 		return nil, apperr.NotFound("Customer not found.")
 	}
 
+	// Brand-wide: any store of the caller's business (the read above is scoped).
 	if !tenant.IsBrandScoped(claims) {
 		if existing.BranchID == nil || *existing.BranchID != branchID {
 			return nil, apperr.PermissionDenied(
@@ -583,7 +590,8 @@ func (s *Service) DeletePOSCustomer(ctx context.Context, claims *auth.StaffClaim
 		return apperr.NotFound("Customer not found.")
 	}
 
-	// Enforce branch isolation unless brand-scoped
+	// Enforce branch isolation unless brand-scoped; a brand-wide caller is
+	// still held to its business, as GetPOSCustomerByID only finds those.
 	if !tenant.IsBrandScoped(claims) {
 		if customer.BranchID == nil || *customer.BranchID != branchID {
 			return apperr.PermissionDenied("You do not have access to this customer.")

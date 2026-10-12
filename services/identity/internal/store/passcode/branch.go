@@ -14,9 +14,10 @@ import (
 // argument for hashing it more carefully, not less.
 // sealed is the encrypted copy admin can reveal (nil when none).
 func (s *Repo) SetPasscode(ctx context.Context, staffID string, hash, sealed *string) error {
+	// Admin only ever sets codes for its own business's staff.
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{staffID, hash, sealed})
 	tag, err := s.pool.Exec(ctx,
-		`UPDATE staff_users SET passcode_hash = $2, passcode_sealed = $3, updated_at = NOW() WHERE id = $1`,
-		staffID, hash, sealed)
+		`UPDATE staff_users SET passcode_hash = $2, passcode_sealed = $3, updated_at = NOW() WHERE id = $1`+cond, args...)
 	if err != nil {
 		return err
 	}
@@ -47,7 +48,7 @@ func (s *Repo) StaffWithPasscodeAtBranch(ctx context.Context, branchID string) (
 		   AND u.deactivated_at IS NULL
 		   AND u.passcode_hash IS NOT NULL
 			   AND ((r.scope_type = 'branch' AND r.branch_id = $1)
-			        OR r.scope_type = 'brand')`
+			        OR (r.scope_type = 'brand' AND ` + brandOfBranch + `))`
 
 	// Either id can be absent — a brand-wide account has no branch, and the
 	// caller may not know the franchise. An empty string is not a uuid, so it

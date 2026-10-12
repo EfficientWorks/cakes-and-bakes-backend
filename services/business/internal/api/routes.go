@@ -16,3 +16,9 @@ func MountPlatform(v1 chi.Router, h *Handler, platformKey string) {
 		r.Post("/businesses/{businessId}/owner", h.CreateOwner)
 	})
 }
+
+// MountAdmin attaches the console's read of its own business onto the
+// staff-authenticated /admin router.
+func MountAdmin(admin chi.Router, h *Handler) {
+	admin.Get("/business", h.MyBusiness)
+}

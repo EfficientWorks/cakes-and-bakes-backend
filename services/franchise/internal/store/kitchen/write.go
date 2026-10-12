@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/franchise/franchiseapi"
 	"bakehouse/services/franchise/internal/store/shared"
 )
@@ -23,9 +24,11 @@ func (s *Repo) CreateCentralKitchen(ctx context.Context, in franchiseapi.Central
 	var id string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO central_kitchens (name, location_code, street, city, state, postcode, country,
-			phone, email, timezone, status, manager_name, manager_phone, manager_email, created_by)
-		VALUES ($1,$2,$3,$4,$5,$6,COALESCE(NULLIF($7,''),'US'),$8,$9,COALESCE(NULLIF($10,''),'America/New_York'),
-			COALESCE(NULLIF($11,''),'active'),$12,$13,$14,$15)
+			phone, email, timezone, status, manager_name, manager_phone, manager_email, created_by, business_id)
+		VALUES ($1,$2,$3,$4,$5,$6,
+			COALESCE(NULLIF($7,''),(SELECT country_code FROM businesses WHERE id = $16),'GB'),$8,$9,
+			COALESCE(NULLIF($10,''),(SELECT timezone FROM businesses WHERE id = $16),'Europe/London'),
+			COALESCE(NULLIF($11,''),'active'),$12,$13,$14,$15,$16)
 		RETURNING id`,
 		strings.TrimSpace(shared.Deref(in.Name)), strings.TrimSpace(shared.Deref(in.LocationCode)),
 		strings.TrimSpace(shared.Deref(in.Street)), strings.TrimSpace(shared.Deref(in.City)), strings.TrimSpace(shared.Deref(in.State)),
@@ -33,7 +36,8 @@ func (s *Repo) CreateCentralKitchen(ctx context.Context, in franchiseapi.Central
 		shared.NilIfEmpty(strings.TrimSpace(shared.Deref(in.Phone))), shared.NilIfEmpty(strings.TrimSpace(shared.Deref(in.Email))),
 		strings.TrimSpace(shared.Deref(in.Timezone)), strings.TrimSpace(shared.Deref(in.Status)),
 		shared.NilIfEmpty(strings.TrimSpace(shared.Deref(in.ManagerName))), shared.NilIfEmpty(strings.TrimSpace(shared.Deref(in.ManagerPhone))),
-		shared.NilIfEmpty(strings.TrimSpace(shared.Deref(in.ManagerEmail))), shared.NilIfEmpty(createdBy)).Scan(&id)
+		shared.NilIfEmpty(strings.TrimSpace(shared.Deref(in.ManagerEmail))), shared.NilIfEmpty(createdBy),
+		tenant.BusinessParam(ctx)).Scan(&id)
 	if err != nil {
 		return nil, err
 	}

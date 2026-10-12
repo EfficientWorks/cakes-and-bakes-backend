@@ -22,6 +22,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -42,6 +43,7 @@ import (
 	"bakehouse/pkg/obs"
 	"bakehouse/pkg/ratelimit"
 	"bakehouse/pkg/sealbox"
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin"
 	"bakehouse/services/business"
 	"bakehouse/services/catalog"
@@ -50,6 +52,8 @@ import (
 	"bakehouse/services/identity"
 	"bakehouse/services/orders"
 	"bakehouse/services/payments"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func main() {
@@ -81,6 +85,17 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+
+	// Brand-wide roles reach only their own business's stores.
+	tenant.SetBranchBusinessLookup(func(branchID string) (string, bool, error) {
+		var businessID string
+		err := pool.QueryRow(context.Background(),
+			`SELECT COALESCE(business_id::text, '') FROM branches WHERE id::text = $1`, branchID).Scan(&businessID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", false, nil
+		}
+		return businessID, err == nil, err
+	})
 
 	// --- shared infrastructure ------------------------------------------
 
@@ -138,32 +153,38 @@ func main() {
 		geocoder = geo.NewGoogleMapsGeocoder(cfg.GoogleMapsAPIKey)
 	}
 
-	// Image storage: Cloudflare when it is fully configured, otherwise the
-	// application's own database.
-	//
-	// Cloudflare needs all three values together — two out of three yields
-	// delivery URLs that 404, which is far harder to spot than an upload that
-	// refuses outright. Anything short of all three stores the bytes in
-	// Postgres, which needs no account and, unlike the container filesystem,
-	// still holds the catalogue's photography after a deploy.
+	// Image and video storage, in order of preference:
+	//   R2         all six R2 values set: files go to the bucket and are served
+	//              from its public host (CDN, no egress cost)
+	//   Cloudflare Images (images only), when its three values are set
+	//   Postgres   otherwise: no account needed, survives deploys, fine for a
+	//              small catalogue but not for thousands of products
+	r2 := media.R2Config{
+		AccountID: cfg.R2AccountID, AccessKey: cfg.R2AccessKey, SecretKey: cfg.R2SecretKey,
+		Bucket: cfg.R2Bucket, PublicHost: cfg.R2PublicHost, APIBaseURL: cfg.PublicBaseURL,
+	}
 	var imageStore media.Storer = media.DisabledStorer{}
 	switch {
+	case r2.Complete():
+		imageStore = media.NewR2ImageStore(r2)
+		log.Info("images stored in Cloudflare R2", "bucket", r2.Bucket, "servedFrom", r2.PublicHost)
 	case cfg.CloudflareAccountID != "" && cfg.CloudflareImagesToken != "" && cfg.CloudflareImagesHash != "":
 		imageStore = media.NewCloudflareImages(cfg.CloudflareAccountID, cfg.CloudflareImagesToken, cfg.CloudflareImagesHash)
 		log.Info("images stored in Cloudflare Images")
 	default:
+		if cfg.R2AccessKey != "" || cfg.R2PublicHost != "" {
+			log.Warn("R2 is partly configured and will not be used — set R2_ACCOUNT_ID, R2_ACCESS_KEY, R2_SECRET_KEY, R2_BUCKET, R2_PUBLIC_HOST and PUBLIC_BASE_URL")
+		}
 		// PUBLIC_BASE_URL is the one thing this cannot guess: the storefront
 		// runs on a different origin from the API, so a relative delivery URL
-		// would resolve against the wrong host. Without it, uploads are
-		// refused outright rather than silently producing broken images.
+		// would resolve against the wrong host.
 		store, err := media.NewPostgresStorer(pool, cfg.PublicBaseURL)
 		if err != nil {
 			log.Warn("image uploads disabled", "error", err)
 		} else {
 			imageStore = store
-			log.Info("images stored in the database",
-				"servedFrom", cfg.PublicBaseURL+"/v1/media/",
-				"note", "no resizing — set CLOUDFLARE_* to use Cloudflare Images")
+			log.Info("images stored in the database", "servedFrom", cfg.PublicBaseURL+"/v1/media/",
+				"note", "set R2_* to move them to Cloudflare R2")
 		}
 	}
 
@@ -209,8 +230,10 @@ func main() {
 	// KDS: a Location ID can name a store or a central kitchen.
 	identitySvc.UseLocationResolver(franchiseSvc.BusinessIDResolver())
 	catalogSvc := catalog.New(pool, auditWriter, franchiseSvc.Branches(), imageStore)
-	// Product videos live in the database whatever the image provider is.
-	if videoStore, err := media.NewVideoStore(pool, cfg.PublicBaseURL); err != nil {
+	// Product videos: R2 when it is configured, otherwise the database.
+	if r2.Complete() {
+		catalogSvc.UseVideos(media.NewR2VideoStore(r2))
+	} else if videoStore, err := media.NewVideoStore(pool, cfg.PublicBaseURL); err != nil {
 		log.Warn("product video uploads disabled", "error", err)
 	} else {
 		catalogSvc.UseVideos(videoStore)
@@ -286,6 +309,8 @@ func main() {
 		admin:     adminSvc,
 		enquiries: enquiriesSvc,
 		business:  businessSvc,
+
+		storefrontBusiness: cfg.StorefrontBusiness,
 	})
 
 	srv := &http.Server{

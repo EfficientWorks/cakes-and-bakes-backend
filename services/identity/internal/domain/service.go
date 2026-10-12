@@ -522,6 +522,9 @@ func (s *Service) CreateAddress(ctx context.Context, customerID string, a identi
 	}
 	out, err := s.store.CreateCustomerAddress(ctx, a)
 	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, apperr.NotFound("Account not found.")
+		}
 		return nil, apperr.Internal(err)
 	}
 	return out, nil
@@ -577,6 +580,9 @@ func (s *Service) CreateRecipient(ctx context.Context, customerID string, r iden
 	r.CustomerID = customerID
 	out, err := s.store.CreateCustomerRecipient(ctx, r)
 	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, apperr.NotFound("Account not found.")
+		}
 		return nil, apperr.Internal(err)
 	}
 	return out, nil
@@ -826,6 +832,12 @@ func (s *Service) assertCentralKitchenExists(ctx context.Context, role identitya
 	if err != nil {
 		return apperr.Internal(err)
 	}
+	// Another business's kitchen reads as unknown, as its stores do.
+	if active {
+		if active, err = s.store.CentralKitchenInBusiness(ctx, *role.CentralKitchenID); err != nil {
+			return apperr.Internal(err)
+		}
+	}
 	if !active {
 		return apperr.Validation("That corporate office does not exist or is inactive.").
 			WithFields(apperr.FieldError{Field: "centralKitchenId", Code: "UNKNOWN", Message: "Unknown or inactive corporate office."})
@@ -999,8 +1011,9 @@ func (s *Service) ListStaffNetwork(ctx context.Context, claims *auth.StaffClaims
 }
 
 func (s *Service) DeactivateStaffUser(ctx context.Context, staffID string) error {
+	// Not found for another business's staff, so their sessions are left alone.
 	if err := s.store.DeactivateStaffUser(ctx, staffID); err != nil {
-		return apperr.Internal(err)
+		return staffNotFoundOrInternal(err)
 	}
 	_ = s.store.RevokeAllRefreshTokens(ctx, identityapi.SubjectStaff, staffID)
 	return nil
@@ -1082,7 +1095,7 @@ func (s *Service) UpdateStaffUserKDS(
 	}
 	if role != "" {
 		if err := s.store.ReplaceStaffRoleAssignment(ctx, staffID, role, scopeType, branchID, centralKitchenID); err != nil {
-			return apperr.Internal(err)
+			return staffNotFoundOrInternal(err)
 		}
 	}
 	if passcode != nil {

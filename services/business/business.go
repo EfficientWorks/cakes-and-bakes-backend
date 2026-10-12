@@ -8,6 +8,8 @@
 package business
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -20,15 +22,26 @@ import (
 // Module is the assembled business service.
 type Module struct {
 	handler     *api.Handler
+	store       *store.Store
 	platformKey string
 }
 
 // New assembles the service. platformKey is PLATFORM_API_KEY; empty keeps
 // the platform API closed (every call answers 503).
 func New(pool *pgxpool.Pool, owners identityapi.BusinessOwners, platformKey string) *Module {
-	svc := domain.NewService(store.NewStore(pool), owners)
-	return &Module{handler: api.NewHandler(svc), platformKey: platformKey}
+	st := store.NewStore(pool)
+	svc := domain.NewService(st, owners)
+	return &Module{handler: api.NewHandler(svc), store: st, platformKey: platformKey}
 }
 
 // MountPlatform attaches /platform/* onto v1.
 func (m *Module) MountPlatform(v1 chi.Router) { api.MountPlatform(v1, m.handler, m.platformKey) }
+
+// MountAdmin attaches GET /admin/business onto the staff /admin router.
+func (m *Module) MountAdmin(admin chi.Router) { api.MountAdmin(admin, m.handler) }
+
+// ResolveBusiness is the middleware that sets the business a public request
+// is for (X-Business header, else defaultSlug). See api.ResolveBusiness.
+func (m *Module) ResolveBusiness(defaultSlug string) func(http.Handler) http.Handler {
+	return api.ResolveBusiness(m.store.GetBusinessBySlug, defaultSlug)
+}

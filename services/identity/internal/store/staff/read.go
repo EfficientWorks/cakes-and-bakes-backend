@@ -8,10 +8,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/identity/identityapi"
 	"bakehouse/services/identity/internal/store/shared"
 )
 
+// GetStaffByEmail is deliberately not business-scoped: staff sign in before
+// any business is known (the token carries it afterwards), and an email is
+// unique across the platform (idx_staff_users_email), so the duplicate check
+// on invite must see every business too.
 func (s *Repo) GetStaffByEmail(ctx context.Context, email string) (*identityapi.StaffUser, error) {
 	const q = `
 		SELECT id, email, password_hash, first_name, last_name, is_active, created_at, updated_at, business_id
@@ -20,15 +25,19 @@ func (s *Repo) GetStaffByEmail(ctx context.Context, email string) (*identityapi.
 	return scanStaff(row)
 }
 
+// GetStaffByID reads one account. Sign-in, refresh and the session guard run
+// unscoped and see any account; an admin request only its own business's.
 func (s *Repo) GetStaffByID(ctx context.Context, id string) (*identityapi.StaffUser, error) {
-	const q = `
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{id})
+	q := `
 		SELECT id, email, password_hash, first_name, last_name, is_active, created_at, updated_at, business_id
-		FROM staff_users WHERE id = $1`
-	row := s.pool.QueryRow(ctx, q, id)
+		FROM staff_users WHERE id = $1` + cond
+	row := s.pool.QueryRow(ctx, q, args...)
 	return scanStaff(row)
 }
 
 // StaffByID reads one account, for the session a successful passcode opens.
+// Only reached from the unscoped POS / KDS sign-in, so left global.
 func (s *Repo) StaffByID(ctx context.Context, id string) (*identityapi.StaffUser, error) {
 	const q = `
 		SELECT id, email, first_name, last_name, is_active, created_at, updated_at, business_id
@@ -54,6 +63,11 @@ func (s *Repo) ListStaffNetwork(ctx context.Context, f identityapi.StaffDirector
 	add := func(cond string, val interface{}) {
 		args = append(args, val)
 		where = append(where, fmt.Sprintf(cond, len(args)))
+	}
+	// The caller's business only, before any brand/branch narrowing in the
+	// domain: a brand-wide role is brand-wide within its own business.
+	if tenant.Scoped(ctx) {
+		add("su.business_id IS NOT DISTINCT FROM $%d", tenant.BusinessParam(ctx))
 	}
 	if f.IsActive != nil {
 		add("su.is_active = $%d", *f.IsActive)
@@ -127,11 +141,15 @@ func (s *Repo) ListStaffNetwork(ctx context.Context, f identityapi.StaffDirector
 }
 
 func (s *Repo) ListStaffRoleAssignments(ctx context.Context, staffUserID string) ([]identityapi.StaffRoleAssignment, error) {
-	const q = `
-		SELECT id, staff_user_id, role, scope_type, branch_id, central_kitchen_id,
-		       max_refund_cents, max_discount_pct, order_void_window_mins, created_at
-		FROM staff_role_assignments WHERE staff_user_id = $1`
-	rows, err := s.pool.Query(ctx, q, staffUserID)
+	// Unscoped at sign-in; from the admin, another business's staff has none.
+	cond, args := shared.BusinessCond(ctx, "su.business_id", []any{staffUserID})
+	q := `
+		SELECT sra.id, sra.staff_user_id, sra.role, sra.scope_type, sra.branch_id, sra.central_kitchen_id,
+		       sra.max_refund_cents, sra.max_discount_pct, sra.order_void_window_mins, sra.created_at
+		FROM staff_role_assignments sra
+		JOIN staff_users su ON su.id = sra.staff_user_id
+		WHERE sra.staff_user_id = $1` + cond
+	rows, err := s.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -147,4 +165,18 @@ func (s *Repo) ListStaffRoleAssignments(ctx context.Context, staffUserID string)
 		out = append(out, ra)
 	}
 	return out, rows.Err()
+}
+
+// CentralKitchenInBusiness reports whether a scoped caller may assign roles
+// at this kitchen: it must belong to their business. Always true for system
+// work. The branch equivalent is tenant.CanAccessBranch.
+func (s *Repo) CentralKitchenInBusiness(ctx context.Context, centralKitchenID string) (bool, error) {
+	if !tenant.Scoped(ctx) {
+		return true, nil
+	}
+	var ok bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM central_kitchens WHERE id = $1 AND business_id IS NOT DISTINCT FROM $2)`,
+		centralKitchenID, tenant.BusinessParam(ctx)).Scan(&ok)
+	return ok, err
 }

@@ -8,11 +8,15 @@ import (
 	"bakehouse/services/identity/internal/store/shared"
 )
 
+// Every statement is limited to a customer of the caller's business
+// (shared.CustomerCond), as addresses are.
+
 func (s *Repo) ListCustomerRecipients(ctx context.Context, customerID string) ([]identityapi.CustomerRecipient, error) {
-	const q = `
+	cond, args := shared.CustomerCond(ctx, "customer_recipients.customer_id", []any{customerID})
+	q := `
 		SELECT id, customer_id, first_name, last_name, phone, relationship, occasion_dates, created_at, updated_at
-		FROM customer_recipients WHERE customer_id = $1 ORDER BY created_at DESC`
-	rows, err := s.pool.Query(ctx, q, customerID)
+		FROM customer_recipients WHERE customer_id = $1` + cond + ` ORDER BY created_at DESC`
+	rows, err := s.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -32,6 +36,9 @@ func (s *Repo) ListCustomerRecipients(ctx context.Context, customerID string) ([
 }
 
 func (s *Repo) CreateCustomerRecipient(ctx context.Context, r identityapi.CustomerRecipient) (*identityapi.CustomerRecipient, error) {
+	if err := shared.CustomerInBusiness(ctx, s.pool, r.CustomerID); err != nil {
+		return nil, err
+	}
 	occasionJSON, err := json.Marshal(r.OccasionDates)
 	if err != nil {
 		return nil, err
@@ -55,10 +62,12 @@ func (s *Repo) UpdateCustomerRecipient(ctx context.Context, customerID, recipien
 	if err != nil {
 		return err
 	}
-	const q = `
+	cond, args := shared.CustomerCond(ctx, "customer_recipients.customer_id",
+		[]any{recipientID, customerID, r.FirstName, r.LastName, r.Phone, r.Relationship, occasionJSON})
+	q := `
 		UPDATE customer_recipients SET first_name=$3, last_name=$4, phone=$5, relationship=$6, occasion_dates=$7, updated_at=NOW()
-		WHERE id = $1 AND customer_id = $2`
-	tag, err := s.pool.Exec(ctx, q, recipientID, customerID, r.FirstName, r.LastName, r.Phone, r.Relationship, occasionJSON)
+		WHERE id = $1 AND customer_id = $2` + cond
+	tag, err := s.pool.Exec(ctx, q, args...)
 	if err != nil {
 		return err
 	}
@@ -69,7 +78,8 @@ func (s *Repo) UpdateCustomerRecipient(ctx context.Context, customerID, recipien
 }
 
 func (s *Repo) DeleteCustomerRecipient(ctx context.Context, customerID, recipientID string) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM customer_recipients WHERE id = $1 AND customer_id = $2`, recipientID, customerID)
+	cond, args := shared.CustomerCond(ctx, "customer_recipients.customer_id", []any{recipientID, customerID})
+	tag, err := s.pool.Exec(ctx, `DELETE FROM customer_recipients WHERE id = $1 AND customer_id = $2`+cond, args...)
 	if err != nil {
 		return err
 	}

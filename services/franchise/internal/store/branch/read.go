@@ -5,17 +5,30 @@ import (
 	"fmt"
 	"strings"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/franchise/franchiseapi"
+	"bakehouse/services/franchise/internal/store/shared"
 )
 
 func (s *Repo) GetBranch(ctx context.Context, id string) (*franchiseapi.Branch, error) {
-	row := s.pool.QueryRow(ctx, branchSelect+` WHERE b.id = $1`, id)
-	return scanBranch(row)
+	return ownBranch(ctx)(scanBranch(s.pool.QueryRow(ctx, branchSelect+` WHERE b.id = $1`, id)))
 }
 
 func (s *Repo) GetBranchByCode(ctx context.Context, code string) (*franchiseapi.Branch, error) {
-	row := s.pool.QueryRow(ctx, branchSelect+` WHERE b.code = $1`, code)
-	return scanBranch(row)
+	return ownBranch(ctx)(scanBranch(s.pool.QueryRow(ctx, branchSelect+` WHERE b.code = $1`, code)))
+}
+
+// ownBranch hides another business's store: it is not found, not forbidden.
+func ownBranch(ctx context.Context) func(*franchiseapi.Branch, error) (*franchiseapi.Branch, error) {
+	return func(b *franchiseapi.Branch, err error) (*franchiseapi.Branch, error) {
+		if err != nil {
+			return nil, err
+		}
+		if !tenant.OwnsRow(ctx, b.BusinessID) {
+			return nil, shared.ErrNotFound
+		}
+		return b, nil
+	}
 }
 
 func (s *Repo) ListBranches(ctx context.Context, status string) ([]franchiseapi.Branch, error) {
@@ -25,6 +38,12 @@ func (s *Repo) ListBranches(ctx context.Context, status string) ([]franchiseapi.
 	if status != "" {
 		args = append(args, status)
 		where = append(where, fmt.Sprintf("b.status = $%d", len(args)))
+	}
+	// Only the caller's business's stores: the console's store list and the
+	// storefront's delivery and pickup routing alike.
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("b.business_id IS NOT DISTINCT FROM $%d", len(args)))
 	}
 	if len(where) > 0 {
 		q += " WHERE " + where[0]

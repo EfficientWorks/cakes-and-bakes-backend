@@ -5,12 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin/adminapi"
 )
 
 func (s *Repo) ChannelBreakdown(ctx context.Context, branchID string, from, to time.Time) ([]adminapi.ChannelBreakdown, error) {
 	where := []string{"created_at >= $1", "created_at < $2", "status <> 'cancelled'"}
 	args := []interface{}{from, to}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 	if branchID != "" {
 		args = append(args, branchID)
 		where = append(where, fmt.Sprintf("branch_id = $%d", len(args)))
@@ -45,6 +50,10 @@ func (s *Repo) ChannelBreakdown(ctx context.Context, branchID string, from, to t
 func (s *Repo) PeakPeriods(ctx context.Context, branchID string, from, to time.Time) ([]adminapi.PeakPeriodCell, error) {
 	where := []string{"created_at >= $1", "created_at < $2", "status <> 'cancelled'"}
 	args := []interface{}{from, to}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 	if branchID != "" {
 		args = append(args, branchID)
 		where = append(where, fmt.Sprintf("branch_id = $%d", len(args)))
@@ -90,6 +99,10 @@ func (s *Repo) PeakPeriods(ctx context.Context, branchID string, from, to time.T
 func (s *Repo) FulfilmentBreakdown(ctx context.Context, branchID string, from, to time.Time) ([]adminapi.FulfilmentBreakdown, error) {
 	args := []any{from, to}
 	where := []string{"created_at >= $1", "created_at < $2"}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 	if branchID != "" {
 		args = append(args, branchID)
 		where = append(where, fmt.Sprintf("branch_id = $%d", len(args)))

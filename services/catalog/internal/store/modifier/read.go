@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 )
 
@@ -19,7 +20,8 @@ func (s *Repo) ListModifierGroups(ctx context.Context) ([]catalogapi.ModifierGro
 		SELECT id, COALESCE(product_id::text, ''), name, COALESCE(display_name, name), kind, type,
 		       is_required, allow_multiple, min_select, COALESCE(max_select, 0), sort_order
 		FROM modifier_groups
-		ORDER BY sort_order, name`)
+		WHERE business_id IS NOT DISTINCT FROM $1
+		ORDER BY sort_order, name`, tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +183,8 @@ func (s *Repo) GroupKinds(ctx context.Context, groupIDs []string) (map[string]st
 		return out, nil
 	}
 	rows, err := s.pool.Query(ctx,
-		`SELECT id::text, COALESCE(kind, '') FROM modifier_groups WHERE id = ANY($1)`, groupIDs)
+		`SELECT id::text, COALESCE(kind, '') FROM modifier_groups WHERE id = ANY($1) AND business_id IS NOT DISTINCT FROM $2`,
+		groupIDs, tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("read modifier kinds: %w", err)
 	}

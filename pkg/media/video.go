@@ -1,7 +1,6 @@
 package media
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -84,17 +83,9 @@ func (v *VideoStore) Receive(ctx context.Context, id string, r io.Reader) error 
 	if err := validID(id); err != nil {
 		return err
 	}
-	var buf bytes.Buffer
-	written, err := io.Copy(&buf, io.LimitReader(r, MaxVideoBytes+1))
+	data, contentType, err := prepareVideo(r)
 	if err != nil {
-		return fmt.Errorf("media: read video upload: %w", err)
-	}
-	if written > MaxVideoBytes {
-		return ErrVideoTooLarge
-	}
-	contentType := detectVideoType(buf.Bytes())
-	if contentType == "" {
-		return ErrUnsupportedVideo
+		return err
 	}
 	const q = `
 		INSERT INTO media_videos (id, content_type, byte_size, bytes)
@@ -104,7 +95,7 @@ func (v *VideoStore) Receive(ctx context.Context, id string, r io.Reader) error 
 		       byte_size    = EXCLUDED.byte_size,
 		       bytes        = EXCLUDED.bytes,
 		       created_at   = NOW()`
-	if _, err := v.pool.Exec(ctx, q, id, contentType, written, buf.Bytes()); err != nil {
+	if _, err := v.pool.Exec(ctx, q, id, contentType, len(data), data); err != nil {
 		return fmt.Errorf("media: store video %s: %w", id, err)
 	}
 	return nil

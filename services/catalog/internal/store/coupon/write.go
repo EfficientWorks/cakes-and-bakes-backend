@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/store/shared"
 )
@@ -13,13 +14,13 @@ func (s *Repo) CreateCoupon(ctx context.Context, c catalogapi.Coupon, createdBy 
 	q := `
 		INSERT INTO coupons (code, name, type, discount_value, status, applies_to, target_ids,
 			usage_limit, has_active_dates, starts_at, ends_at, has_minimum_order, minimum_order_cents,
-			branch_id, created_by, show_on_checkout)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+			branch_id, created_by, show_on_checkout, business_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 		RETURNING ` + couponColumns
 	return scanCoupon(s.pool.QueryRow(ctx, q,
 		strings.ToUpper(c.Code), c.Name, c.Type, c.DiscountValue, c.Status, c.AppliesTo, shared.OrEmptyStrings(c.TargetIDs),
 		c.UsageLimit, c.HasActiveDates, c.StartsAt, c.EndsAt, c.HasMinimumOrder, c.MinimumOrderCents,
-		c.BranchID, shared.OrNilUUID(createdBy), c.ShowOnCheckout))
+		c.BranchID, shared.OrNilUUID(createdBy), c.ShowOnCheckout, tenant.BusinessParam(ctx)))
 }
 
 func (s *Repo) UpdateCoupon(ctx context.Context, id string, c catalogapi.Coupon) (*catalogapi.Coupon, error) {
@@ -29,16 +30,17 @@ func (s *Repo) UpdateCoupon(ctx context.Context, id string, c catalogapi.Coupon)
 		       usage_limit=$9, has_active_dates=$10, starts_at=$11, ends_at=$12,
 		       has_minimum_order=$13, minimum_order_cents=$14, branch_id=$15,
 		       show_on_checkout=$16, updated_at=NOW()
-		 WHERE id=$1 AND deleted_at IS NULL
+		 WHERE id=$1 AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $17
 		RETURNING ` + couponColumns
 	return scanCoupon(s.pool.QueryRow(ctx, q,
 		id, strings.ToUpper(c.Code), c.Name, c.Type, c.DiscountValue, c.Status, c.AppliesTo, shared.OrEmptyStrings(c.TargetIDs),
 		c.UsageLimit, c.HasActiveDates, c.StartsAt, c.EndsAt, c.HasMinimumOrder, c.MinimumOrderCents, c.BranchID,
-		c.ShowOnCheckout))
+		c.ShowOnCheckout, tenant.BusinessParam(ctx)))
 }
 
 func (s *Repo) SetCouponStatus(ctx context.Context, id, status string) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE coupons SET status = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id, status)
+	tag, err := s.pool.Exec(ctx, `UPDATE coupons SET status = $2, updated_at = NOW()
+		  WHERE id = $1 AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $3`, id, status, tenant.BusinessParam(ctx))
 	if err != nil {
 		return err
 	}
@@ -51,7 +53,8 @@ func (s *Repo) SetCouponStatus(ctx context.Context, id, status string) error {
 // DeleteCoupon is a soft delete. Redemptions reference the coupon and an order
 // that used it keeps its discount; removing the row would break both.
 func (s *Repo) DeleteCoupon(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE coupons SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id)
+	tag, err := s.pool.Exec(ctx, `UPDATE coupons SET deleted_at = NOW()
+		  WHERE id = $1 AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $2`, id, tenant.BusinessParam(ctx))
 	if err != nil {
 		return err
 	}

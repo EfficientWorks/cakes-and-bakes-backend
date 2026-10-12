@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"bakehouse/pkg/strx"
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 )
 
@@ -13,9 +14,11 @@ func (s *Repo) GetContent(ctx context.Context, keys []string) ([]catalogapi.Cont
 	var rows pgx.Rows
 	var err error
 	if len(keys) == 0 {
-		rows, err = s.pool.Query(ctx, `SELECT key, value, type, updated_at FROM site_content ORDER BY key`)
+		rows, err = s.pool.Query(ctx, `SELECT key, value, type, updated_at FROM site_content
+			WHERE business_id IS NOT DISTINCT FROM $1 ORDER BY key`, tenant.BusinessParam(ctx))
 	} else {
-		rows, err = s.pool.Query(ctx, `SELECT key, value, type, updated_at FROM site_content WHERE key = ANY($1) ORDER BY key`, keys)
+		rows, err = s.pool.Query(ctx, `SELECT key, value, type, updated_at FROM site_content
+			WHERE business_id IS NOT DISTINCT FROM $1 AND key = ANY($2) ORDER BY key`, tenant.BusinessParam(ctx), keys)
 	}
 	if err != nil {
 		return nil, err
@@ -39,8 +42,8 @@ func (s *Repo) GetContentByKey(ctx context.Context, key string) (*catalogapi.Con
 	err := s.pool.QueryRow(ctx, `
 		SELECT key, value, type, updated_at
 		FROM site_content
-		WHERE key = $1
-	`, key).Scan(
+		WHERE key = $1 AND business_id IS NOT DISTINCT FROM $2
+	`, key, tenant.BusinessParam(ctx)).Scan(
 		&item.Key,
 		&item.Value,
 		&item.Type,
@@ -56,9 +59,9 @@ func (s *Repo) GetContentByKey(ctx context.Context, key string) (*catalogapi.Con
 
 func (s *Repo) SetContent(ctx context.Context, key, value, contentType, updatedBy string) error {
 	const q = `
-		INSERT INTO site_content (key, value, type, updated_by, updated_at)
-		VALUES ($1,$2,$3,$4,NOW())
-		ON CONFLICT (key) DO UPDATE SET value = $2, type = $3, updated_by = $4, updated_at = NOW()`
-	_, err := s.pool.Exec(ctx, q, key, value, strx.OrDefault(contentType, "text"), strx.NilIfEmpty(updatedBy))
+		INSERT INTO site_content (key, value, type, updated_by, updated_at, business_id)
+		VALUES ($1,$2,$3,$4,NOW(),$5)
+		ON CONFLICT (business_id, key) DO UPDATE SET value = $2, type = $3, updated_by = $4, updated_at = NOW()`
+	_, err := s.pool.Exec(ctx, q, key, value, strx.OrDefault(contentType, "text"), strx.NilIfEmpty(updatedBy), tenant.BusinessParam(ctx))
 	return err
 }

@@ -2,15 +2,24 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin/adminapi"
 )
 
 func (s *Repo) ListBranchesForComparison(ctx context.Context) ([]adminapi.BranchInfo, error) {
-	const q = `SELECT id, name, status, created_at FROM branches ORDER BY name`
+	q := `SELECT id, name, status, created_at FROM branches`
+	args := []any{}
+	// The network being compared is the caller's own business.
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		q += fmt.Sprintf(" WHERE business_id IS NOT DISTINCT FROM $%d", len(args))
+	}
+	q += ` ORDER BY name`
 
-	rows, err := s.pool.Query(ctx, q)
+	rows, err := s.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -32,6 +41,10 @@ func (s *Repo) ListBranchesForComparison(ctx context.Context) ([]adminapi.Branch
 func (s *Repo) OrdersAggByBranch(ctx context.Context, currentFrom, currentTo, compareFrom, compareTo time.Time) (map[string]adminapi.BranchOrderAgg, error) {
 	where := []string{"status <> 'cancelled'"}
 	args := []interface{}{currentFrom, currentTo, compareFrom, compareTo}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 	whereClause := where[0]
 	for i := 1; i < len(where); i++ {
 		whereClause += " AND " + where[i]
@@ -70,7 +83,14 @@ func (s *Repo) OrdersAggByBranch(ctx context.Context, currentFrom, currentTo, co
 // Cancelled orders are left out of both figures: they are not trade, and
 // counting them would make a bad day look like a busy one.
 func (s *Repo) BranchPerformance(ctx context.Context, from, to time.Time) ([]adminapi.BranchPerformance, error) {
-	const q = `
+	args := []any{from, to}
+	scope := ""
+	// Every outlet of the caller's business, and only those.
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		scope = fmt.Sprintf(" WHERE b.business_id IS NOT DISTINCT FROM $%d", len(args))
+	}
+	q := `
 		SELECT b.id, b.name, b.ownership_type,
 		       count(o.id),
 		       coalesce(sum(o.total_cents), 0)
@@ -79,11 +99,11 @@ func (s *Repo) BranchPerformance(ctx context.Context, from, to time.Time) ([]adm
 		         ON o.branch_id = b.id
 		        AND o.deleted_at IS NULL
 		        AND o.status <> 'cancelled'
-		        AND o.created_at >= $1 AND o.created_at < $2
+		        AND o.created_at >= $1 AND o.created_at < $2` + scope + `
 		 GROUP BY b.id, b.name, b.ownership_type
 		 ORDER BY coalesce(sum(o.total_cents), 0) DESC`
 
-	rows, err := s.pool.Query(ctx, q, from, to)
+	rows, err := s.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

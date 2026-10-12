@@ -14,3 +14,7 @@ const productSelect = `
 	       p.video_url
 	FROM products p JOIN product_categories c ON c.id = p.category_id
 	WHERE p.deleted_at IS NULL`
+
+// productScoped is productSelect limited to the request's business. $1 is
+// always tenant.BusinessParam(ctx); a caller's own arguments start at $2.
+const productScoped = productSelect + ` AND p.business_id IS NOT DISTINCT FROM $1`

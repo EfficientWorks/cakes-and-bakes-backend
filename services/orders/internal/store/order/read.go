@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/orders/ordersapi"
 )
 
@@ -13,6 +14,11 @@ func (s *Repo) GetOrderByID(ctx context.Context, id string) (*ordersapi.Order, e
 	if err != nil {
 		return nil, err
 	}
+	// Another business's order is not found, not forbidden: its existence is
+	// not this caller's business either.
+	if !tenant.OwnsRow(ctx, o.BusinessID) {
+		return nil, ordersapi.ErrNotFound
+	}
 	return s.attachOrderChildren(ctx, o)
 }
 
@@ -20,6 +26,9 @@ func (s *Repo) GetOrderByReference(ctx context.Context, reference string) (*orde
 	o, err := scanOrder(s.pool.QueryRow(ctx, SelectSQL+" WHERE reference = $1", reference))
 	if err != nil {
 		return nil, err
+	}
+	if !tenant.OwnsRow(ctx, o.BusinessID) {
+		return nil, ordersapi.ErrNotFound
 	}
 	return s.attachOrderChildren(ctx, o)
 }

@@ -33,6 +33,8 @@ const (
 	submitWindow = time.Hour
 )
 
+var errForeignBranch = errors.New("branch belongs to another business")
+
 // Service holds enquiry capture and the admin queue.
 type Service struct {
 	store    *store.Store
@@ -101,6 +103,10 @@ func (s *Service) Submit(ctx context.Context, req SubmitRequest) (*enquiriesapi.
 	// A named store routes the enquiry to that branch's staff.
 	if req.BranchID != "" {
 		branch, err := s.branches.GetBranch(ctx, req.BranchID)
+		// Another business's store is as unknown here as a made-up id.
+		if err == nil && !tenant.OwnsRow(ctx, branch.BusinessID) {
+			err = errForeignBranch
+		}
 		if err != nil {
 			return nil, apperr.Validation("Select a store location we recognise.").
 				WithFields(apperr.FieldError{Field: "branchId", Code: "UNKNOWN", Message: "Unknown store."})

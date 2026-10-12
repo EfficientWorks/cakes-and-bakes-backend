@@ -26,11 +26,11 @@ type Handler struct {
 	media media.Storer
 	// videos stores product videos (one per product). Nil disables video
 	// upload and delivery.
-	videos *media.VideoStore
+	videos media.VideoStorer
 }
 
 // UseVideos sets the product video store.
-func (h *Handler) UseVideos(v *media.VideoStore) { h.videos = v }
+func (h *Handler) UseVideos(v media.VideoStorer) { h.videos = v }
 
 func NewHandler(svc *domain.Service, storer media.Storer) *Handler {
 	return &Handler{svc: svc, media: storer}

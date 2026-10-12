@@ -80,7 +80,10 @@ type Branch struct {
 	LocationCode *string
 	// BusinessID is the business this store belongs to (businesses.id). Nil
 	// only on stores created before businesses existed.
-	BusinessID    *string
+	BusinessID *string
+	// Currency is the business's ISO currency (GBP for a UK business), which
+	// every order and payment at this store is taken in.
+	Currency      string
 	ID            string
 	Name          string
 	Code          string

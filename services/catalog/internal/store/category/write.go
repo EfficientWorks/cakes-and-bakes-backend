@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/store/shared"
 )
@@ -33,12 +34,13 @@ func (s *Repo) CreateCategory(
 			is_active,
 			available_from,
 			available_until,
-			color_code
+			color_code,
+			business_id
 		)
 		VALUES (
 			$1,$2,$3,$4,$5,$6,
 			COALESCE($7, true),
-			$8,$9,$10
+			$8,$9,$10,$11
 		)
 		RETURNING
 			id,
@@ -67,6 +69,7 @@ func (s *Repo) CreateCategory(
 			w.AvailableFrom,
 			w.AvailableUntil,
 			w.ColorCode,
+			tenant.BusinessParam(ctx),
 		),
 	)
 
@@ -83,7 +86,8 @@ func (s *Repo) CreateCategory(
 	// stating intent, so we only fill in the default when the field was
 	// entirely absent (nil / zero-length slice).
 	if len(w.BranchIds) == 0 {
-		branchRows, err := tx.Query(ctx, `SELECT id FROM branches WHERE status = 'active'`)
+		branchRows, err := tx.Query(ctx,
+			`SELECT id FROM branches WHERE status = 'active' AND business_id IS NOT DISTINCT FROM $1`, tenant.BusinessParam(ctx))
 		if err != nil {
 			return nil, fmt.Errorf("fetch active branches for default category mapping: %w", err)
 		}
@@ -136,7 +140,7 @@ func (s *Repo) UpdateCategory(
 		       available_from = $9,
 		       available_until = $10,
 		       color_code = $11
-		 WHERE id = $1
+		 WHERE id = $1 AND business_id IS NOT DISTINCT FROM $12
 		 RETURNING
 			id,
 			name,
@@ -165,6 +169,7 @@ func (s *Repo) UpdateCategory(
 			w.AvailableFrom,
 			w.AvailableUntil,
 			w.ColorCode,
+			tenant.BusinessParam(ctx),
 		),
 	)
 
@@ -245,7 +250,7 @@ func writeCategoryChildren(ctx context.Context, tx pgx.Tx, categoryID string, w 
 // SetCategoryActive is the list's on/off toggle (CAT-05): one column, no
 // approval step, reflected on the storefront immediately.
 func (s *Repo) SetCategoryActive(ctx context.Context, id string, isActive bool) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE product_categories SET is_active = $2 WHERE id = $1`, id, isActive)
+	tag, err := s.pool.Exec(ctx, `UPDATE product_categories SET is_active = $2 WHERE id = $1 AND business_id IS NOT DISTINCT FROM $3`, id, isActive, tenant.BusinessParam(ctx))
 	if err != nil {
 		return err
 	}
@@ -256,7 +261,7 @@ func (s *Repo) SetCategoryActive(ctx context.Context, id string, isActive bool) 
 }
 
 func (s *Repo) DeleteCategory(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM product_categories WHERE id = $1`, id)
+	tag, err := s.pool.Exec(ctx, `DELETE FROM product_categories WHERE id = $1 AND business_id IS NOT DISTINCT FROM $2`, id, tenant.BusinessParam(ctx))
 	if err != nil {
 		return err
 	}

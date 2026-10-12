@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"strings"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/orders/ordersapi"
 )
 
 func (s *Repo) ListOrders(ctx context.Context, f ordersapi.ListOrdersFilter) ([]ordersapi.Order, int, error) {
-	whereClause, args := buildListOrdersWhere(f)
+	whereClause, args := buildListOrdersWhere(ctx, f)
 	var total int
 	if err := s.pool.QueryRow(ctx, "SELECT count(*) FROM (SELECT * FROM orders WHERE deleted_at IS NULL) orders WHERE "+whereClause, args...).Scan(&total); err != nil {
 		return nil, 0, err
@@ -131,7 +132,7 @@ func (s *Repo) SummarizeOrders(ctx context.Context, f ordersapi.ListOrdersFilter
 	// returned or refunded order counts nothing, and a partly returned one
 	// counts its total, which the return already recomputed from the lines
 	// that were kept.
-	whereClause, args := buildListOrdersWhere(f)
+	whereClause, args := buildListOrdersWhere(ctx, f)
 	if err := s.pool.QueryRow(ctx, `
 		SELECT count(*),
 		       COALESCE(SUM(total_cents) FILTER (WHERE lower(status) NOT IN ('cancelled', 'returned', 'refunded')), 0),
@@ -160,7 +161,7 @@ func (s *Repo) SummarizeOrders(ctx context.Context, f ordersapi.ListOrdersFilter
 	if isOpenTab(strings.ToLower(strings.TrimSpace(f.OrderFilterType))) {
 		sf := f
 		sf.Status = ordersapi.StatusScheduled
-		whereSched, argsSched := buildListOrdersWhere(sf)
+		whereSched, argsSched := buildListOrdersWhere(ctx, sf)
 		if err := s.pool.QueryRow(ctx, `
 			SELECT count(*)
 			  FROM (SELECT * FROM orders WHERE deleted_at IS NULL) orders
@@ -169,7 +170,7 @@ func (s *Repo) SummarizeOrders(ctx context.Context, f ordersapi.ListOrdersFilter
 		}
 		return out, nil
 	}
-	whereNoStatus, argsNoStatus := buildListOrdersWhereOpt(f, true)
+	whereNoStatus, argsNoStatus := buildListOrdersWhereOpt(ctx, f, true)
 	if err := s.pool.QueryRow(ctx, `
 		SELECT count(*)
 		  FROM (SELECT * FROM orders WHERE deleted_at IS NULL) orders
@@ -182,8 +183,8 @@ func (s *Repo) SummarizeOrders(ctx context.Context, f ordersapi.ListOrdersFilter
 // buildListOrdersWhere turns a filter into a WHERE clause and its args. Shared
 // by ListOrders and SummarizeOrders so the totals always describe the same
 // rows the page was cut from.
-func buildListOrdersWhere(f ordersapi.ListOrdersFilter) (string, []interface{}) {
-	return buildListOrdersWhereOpt(f, false)
+func buildListOrdersWhere(ctx context.Context, f ordersapi.ListOrdersFilter) (string, []interface{}) {
+	return buildListOrdersWhereOpt(ctx, f, false)
 }
 
 // buildListOrdersWhereOpt is buildListOrdersWhere with the option to leave
@@ -192,12 +193,16 @@ func buildListOrdersWhere(f ordersapi.ListOrdersFilter) (string, []interface{}) 
 // the scheduled orders behind a tab: a "delivery" tab excludes scheduled
 // orders from its list, yet the counter still wants to know how many
 // scheduled deliveries are waiting.
-func buildListOrdersWhereOpt(f ordersapi.ListOrdersFilter, ignoreStatus bool) (string, []interface{}) {
+func buildListOrdersWhereOpt(ctx context.Context, f ordersapi.ListOrdersFilter, ignoreStatus bool) (string, []interface{}) {
 	where := []string{"1=1"}
 	args := []interface{}{}
 	add := func(cond string, val interface{}) {
 		args = append(args, val)
 		where = append(where, fmt.Sprintf(cond, len(args)))
+	}
+	// Only the caller's business's orders, whatever else is filtered.
+	if tenant.Scoped(ctx) {
+		add("business_id IS NOT DISTINCT FROM $%d", tenant.BusinessParam(ctx))
 	}
 	if f.BranchID != "" {
 		add("branch_id = $%d", f.BranchID)

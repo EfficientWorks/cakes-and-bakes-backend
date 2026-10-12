@@ -15,7 +15,8 @@ func (s *Repo) BranchTax(ctx context.Context, branchID string) (float64, string,
 	var rate *float64
 	var name string
 	err := s.pool.QueryRow(ctx,
-		`SELECT tax_rate_pct, coalesce(tax_name, 'Tax') FROM branches WHERE id::text = $1`, branchID).
+		`SELECT tax_rate_pct, coalesce(tax_name, 'Tax') FROM branches WHERE id::text = $1 AND `+inBusiness("business_id", 2),
+		append([]any{branchID}, businessArgs(ctx)...)...).
 		Scan(&rate, &name)
 	if err != nil {
 		return 0, "", err
@@ -35,7 +36,8 @@ func (s *Repo) CustomerContact(ctx context.Context, customerID string) (adminapi
 	}
 	err := s.pool.QueryRow(ctx, `
 		SELECT coalesce(first_name,''), coalesce(last_name,''), coalesce(email,''), coalesce(mobile_number,'')
-		FROM customers WHERE id = $1 AND deleted_at IS NULL`, customerID).
+		FROM customers WHERE id = $1 AND deleted_at IS NULL AND `+inBusiness("business_id", 2),
+		append([]any{customerID}, businessArgs(ctx)...)...).
 		Scan(&p.FirstName, &p.LastName, &p.Email, &p.Phone)
 	return p, err
 }
@@ -45,7 +47,8 @@ func (s *Repo) BranchContact(ctx context.Context, branchID string) (adminapi.Inv
 	var p adminapi.InvoiceCustomerInput
 	err := s.pool.QueryRow(ctx, `
 		SELECT name, coalesce(email,''), coalesce(phone,''), coalesce(street,''), coalesce(city,''), coalesce(state,'')
-		FROM branches WHERE id::text = $1`, branchID).
+		FROM branches WHERE id::text = $1 AND `+inBusiness("business_id", 2),
+		append([]any{branchID}, businessArgs(ctx)...)...).
 		Scan(&p.FirstName, &p.Email, &p.Phone, &p.Address, &p.City, &p.State)
 	return p, err
 }

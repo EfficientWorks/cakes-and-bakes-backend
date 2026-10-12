@@ -34,7 +34,7 @@ func (s *Repo) StaffWithPasscodeForPOS(ctx context.Context, branchID string) ([]
 		  JOIN staff_role_assignments r ON r.staff_user_id = u.id
 		 WHERE u.passcode_hash IS NOT NULL
 		   AND r.role <> 'central_kitchen_staff'
-		   AND ((r.scope_type = 'branch' AND r.branch_id = $1) OR r.scope_type = 'brand')`, shared.NilIfBlank(branchID))
+		   AND ((r.scope_type = 'branch' AND r.branch_id = $1) OR (r.scope_type = 'brand' AND `+brandOfBranch+`))`, shared.NilIfBlank(branchID))
 }
 
 // StaffWithPasscodeForKDSBranch is who may open a store's KDS.
@@ -46,7 +46,7 @@ func (s *Repo) StaffWithPasscodeForKDSBranch(ctx context.Context, branchID strin
 		  JOIN staff_role_assignments r ON r.staff_user_id = u.id
 		 WHERE u.passcode_hash IS NOT NULL
 		   AND ((r.role = 'central_kitchen_staff' AND r.scope_type = 'branch' AND r.branch_id = $1)
-		        OR (r.role = 'super_admin' AND r.scope_type = 'brand'))`, shared.NilIfBlank(branchID))
+		        OR (r.role = 'super_admin' AND r.scope_type = 'brand' AND `+brandOfBranch+`))`, shared.NilIfBlank(branchID))
 }
 
 // StaffWithPasscodeForKDSKitchen is who may open a central kitchen's KDS.
@@ -58,7 +58,7 @@ func (s *Repo) StaffWithPasscodeForKDSKitchen(ctx context.Context, centralKitche
 		  JOIN staff_role_assignments r ON r.staff_user_id = u.id
 		 WHERE u.passcode_hash IS NOT NULL
 		   AND ((r.role = 'central_kitchen_staff' AND r.scope_type = 'central_kitchen' AND r.central_kitchen_id = $1)
-		        OR (r.role = 'super_admin' AND r.scope_type = 'brand'))`, shared.NilIfBlank(centralKitchenID))
+		        OR (r.role = 'super_admin' AND r.scope_type = 'brand' AND `+brandOfKitchen+`))`, shared.NilIfBlank(centralKitchenID))
 }
 
 // PasscodeTakenAtCentralKitchen reports whether somebody else at the same

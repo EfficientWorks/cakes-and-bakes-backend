@@ -6,7 +6,10 @@
 // a provider can be swapped, and local dev works without an account.
 package media
 
-import "context"
+import (
+	"context"
+	"io"
+)
 
 // UploadTicket is a one-time permission to upload one image.
 //
@@ -78,3 +81,12 @@ func (DisabledStorer) Delete(context.Context, string) error { return ErrNotConfi
 func (DisabledStorer) DeliveryURL(string, string) string { return "" }
 
 func (DisabledStorer) Enabled() bool { return false }
+
+// VideoStorer stores product videos. VideoStore keeps them in Postgres and
+// serves them itself; R2VideoStore keeps them in R2, served from its public
+// host.
+type VideoStorer interface {
+	CreateUploadTicket(ctx context.Context) (*UploadTicket, error)
+	Receive(ctx context.Context, id string, r io.Reader) error
+	Delete(ctx context.Context, id string) error
+}

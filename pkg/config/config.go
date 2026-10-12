@@ -46,6 +46,11 @@ type Config struct {
 	// businesses. Empty keeps that API closed.
 	PlatformAPIKey string
 
+	// StorefrontBusiness is the slug of the business public requests (the
+	// website, customer accounts) act for when they send no X-Business
+	// header. Empty: only data from before businesses existed.
+	StorefrontBusiness string
+
 	// Stripe takes every card payment: the storefront's hosted checkout,
 	// POS payment links and refunds.
 	StripeSecretKey      string
@@ -159,6 +164,7 @@ func Load() Config {
 
 		LocationIQAccessToken: getEnv("LOCATIONIQ_ACCESS_TOKEN", ""),
 		PlatformAPIKey:        getEnv("PLATFORM_API_KEY", ""),
+		StorefrontBusiness:    getEnv("STOREFRONT_BUSINESS", ""),
 
 		StripeSecretKey:      getEnv("STRIPE_SECRET_KEY", ""),
 		StripePublishableKey: getEnv("STRIPE_PUBLISHABLE_KEY", ""),

@@ -994,6 +994,55 @@ definitions:
         example: correct-horse-battery
         type: string
     type: object
+  services_business_internal_api.myBusinessDTO:
+    properties:
+      contactEmail:
+        example: hello@cakesandbakes.co.uk
+        type: string
+      contactPhone:
+        example: +44 20 7946 0000
+        type: string
+      country:
+        $ref: '#/definitions/services_business_internal_api.countryDTO'
+      countryCode:
+        example: GB
+        type: string
+      createdAt:
+        type: string
+      currency:
+        example: GBP
+        type: string
+      defaultTaxRatePct:
+        example: 20
+        type: number
+      id:
+        example: 5b0c6e9e-2f0a-4c55-9d8e-1f2a3b4c5d6e
+        type: string
+      locale:
+        example: en-GB
+        type: string
+      name:
+        example: Cakes & Bakes
+        type: string
+      slug:
+        example: cakes-and-bakes
+        type: string
+      status:
+        description: active | suspended
+        example: active
+        type: string
+      taxMode:
+        example: inclusive
+        type: string
+      taxName:
+        example: VAT
+        type: string
+      timezone:
+        example: Europe/London
+        type: string
+      updatedAt:
+        type: string
+    type: object
   services_business_internal_api.ownerDTO:
     properties:
       businessId:
@@ -6996,6 +7045,36 @@ paths:
       tags:
       - admin-reports
       - admin-reports
+  /admin/business:
+    get:
+      description: 'The business the caller''s staff account belongs to, with its
+        country''s currency, locale, tax and postcode conventions. Read-only: the
+        emzo team changes a business through the platform API.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_business_internal_api.myBusinessDTO'
+              type: object
+        "401":
+          description: UNAUTHENTICATED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "404":
+          description: NOT_FOUND — the account belongs to no business
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - BearerAuth: []
+      summary: The signed-in business
+      tags:
+      - admin
   /admin/categories:
     get:
       description: Super admin and finance see the master list. A franchise login

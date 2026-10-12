@@ -88,7 +88,7 @@ func (h *Handler) DeleteImage(w http.ResponseWriter, r *http.Request) {
 func imageStorageError(err error) error {
 	if errors.Is(err, media.ErrNotConfigured) {
 		return apperr.Wrap(err, "IMAGE_STORAGE_NOT_CONFIGURED", apperr.CategoryUpstream,
-			"Image uploads are not set up. Set CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_IMAGES_TOKEN and CLOUDFLARE_IMAGES_HASH.")
+			"Image uploads are not set up. Set the R2_* settings (or PUBLIC_BASE_URL to store images in the database).")
 	}
 	return apperr.Wrap(err, "IMAGE_UPLOAD_FAILED", apperr.CategoryUpstream,
 		"The image could not be prepared for upload. Please try again.")
@@ -152,6 +152,12 @@ func (h *Handler) UploadImageContent(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404	{object}	httpx.Envelope	"NOT_FOUND"
 //	@Router			/media/{imageId} [get]
 func (h *Handler) ServeImage(w http.ResponseWriter, r *http.Request) {
+	// Stored in R2: send the browser to the public host. Links saved while
+	// images lived in the database keep working this way.
+	if public, ok := h.media.(media.PublicDelivery); ok {
+		http.Redirect(w, r, public.PublicURL(chi.URLParam(r, "imageId")), http.StatusMovedPermanently)
+		return
+	}
 	receiver, ok := h.media.(media.Receiver)
 	if !ok {
 		httpx.WriteError(w, r, apperr.NotFound("Image not found."))

@@ -76,9 +76,12 @@ func (m *Module) UseScopeStatus(r domain.ScopeStatusReader) { m.svc.UseScopeStat
 // reveal them.
 func (m *Module) UsePasscodeBox(b *sealbox.Box) { m.svc.UsePasscodeBox(b) }
 
-// MountPublic attaches customer and staff auth (registration, login,
-// refresh, password reset).
-func (m *Module) MountPublic(r chi.Router) { api.MountPublic(r, m.handler) }
+// MountCustomerAuth attaches customer sign-up and sign-in (behind the
+// business resolver).
+func (m *Module) MountCustomerAuth(r chi.Router) { api.MountCustomerAuth(r, m.handler) }
+
+// MountStaffAuth attaches staff, POS and KDS sign-in.
+func (m *Module) MountStaffAuth(r chi.Router) { api.MountStaffAuth(r, m.handler) }
 
 // MountAccount attaches profile, address and recipient management onto the
 // shared /account router.

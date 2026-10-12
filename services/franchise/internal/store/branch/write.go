@@ -46,6 +46,7 @@ func (s *Repo) MapDefaultProductsAndCategories(ctx context.Context, branchID str
 		SELECT $1, id, true, NOW()
 		FROM products
 		WHERE deleted_at IS NULL
+		  AND business_id IS NOT DISTINCT FROM (SELECT business_id FROM branches WHERE id = $1)
 		ON CONFLICT (branch_id, product_id)
 		DO UPDATE SET branch_enabled = true, updated_at = NOW()`
 	if _, err := s.pool.Exec(ctx, mapProducts, branchID); err != nil {
@@ -56,6 +57,7 @@ func (s *Repo) MapDefaultProductsAndCategories(ctx context.Context, branchID str
 		INSERT INTO branch_category_rules (branch_id, category_id, branch_enabled, updated_at)
 		SELECT $1, id, true, NOW()
 		FROM product_categories
+		WHERE business_id IS NOT DISTINCT FROM (SELECT business_id FROM branches WHERE id = $1)
 		ON CONFLICT (branch_id, category_id)
 		DO UPDATE SET branch_enabled = true, updated_at = NOW()`
 	if _, err := s.pool.Exec(ctx, mapCategories, branchID); err != nil {

@@ -36,7 +36,7 @@ func New(pool *pgxpool.Pool, auditWriter *audit.Writer, branches franchiseapi.Br
 }
 
 // UseVideos turns on product video upload and delivery.
-func (m *Module) UseVideos(v *media.VideoStore) { m.handler.UseVideos(v) }
+func (m *Module) UseVideos(v media.VideoStorer) { m.handler.UseVideos(v) }
 
 // Pricing exposes line-item pricing to the orders service. Orders re-prices
 // every line through this seam at checkout and never trusts a client price.

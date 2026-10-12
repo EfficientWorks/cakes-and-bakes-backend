@@ -346,7 +346,10 @@ type Order struct {
 	// every cancel path (till, admin, customer, system) and for orders
 	// cancelled before these fields existed. Nil unless the order is
 	// cancelled.
-	Cancellation      *OrderCancellation
+	Cancellation *OrderCancellation
+	// BusinessID is the business the order belongs to (its store's), set by
+	// the database when the order is created.
+	BusinessID        *string
 	ReturnedBy        *string
 	ReturnedByName    *string
 	TotalDurationSecs *int
@@ -538,6 +541,9 @@ type PriceSummary struct {
 	// not, why (a customer-readable sentence). Always available for pickup.
 	DeliveryAvailable bool
 	DeliveryMessage   string
+
+	// Currency the amounts are in: the store's business's.
+	Currency string
 }
 
 // OrderCancellation is who cancelled an order, when, and why.

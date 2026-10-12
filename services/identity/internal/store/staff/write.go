@@ -88,6 +88,16 @@ func (s *Repo) ReplaceStaffRoleAssignment(ctx context.Context, staffID, role, sc
 	}
 	defer tx.Rollback(ctx)
 
+	// Another business's staff member is not found, before anything is
+	// deleted.
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{staffID})
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM staff_users WHERE id = $1`+cond+`)`, args...).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return shared.ErrNotFound
+	}
 	if _, err := tx.Exec(ctx, `DELETE FROM staff_role_assignments WHERE staff_user_id = $1`, staffID); err != nil {
 		return err
 	}
@@ -99,9 +109,19 @@ func (s *Repo) ReplaceStaffRoleAssignment(ctx context.Context, staffID, role, sc
 	return tx.Commit(ctx)
 }
 
+// DeactivateStaffUser is ErrNotFound for an id outside the caller's business,
+// so the caller stops before revoking that account's sessions.
 func (s *Repo) DeactivateStaffUser(ctx context.Context, id string) error {
-	_, err := s.pool.Exec(ctx, `UPDATE staff_users SET is_active = false, deactivated_at = NOW(), updated_at = NOW() WHERE id = $1`, id)
-	return err
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{id})
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE staff_users SET is_active = false, deactivated_at = NOW(), updated_at = NOW() WHERE id = $1`+cond, args...)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return shared.ErrNotFound
+	}
+	return nil
 }
 
 // ReactivateStaffUser is the counterpart to DeactivateStaffUser.
@@ -109,8 +129,9 @@ func (s *Repo) DeactivateStaffUser(ctx context.Context, id string) error {
 // It clears deactivated_at rather than only flipping the flag, so "is this
 // account currently disabled" and "when was it last disabled" cannot disagree.
 func (s *Repo) ReactivateStaffUser(ctx context.Context, id string) error {
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{id})
 	tag, err := s.pool.Exec(ctx,
-		`UPDATE staff_users SET is_active = true, deactivated_at = NULL, updated_at = NOW() WHERE id = $1`, id)
+		`UPDATE staff_users SET is_active = true, deactivated_at = NULL, updated_at = NOW() WHERE id = $1`+cond, args...)
 	if err != nil {
 		return err
 	}
@@ -123,9 +144,9 @@ func (s *Repo) ReactivateStaffUser(ctx context.Context, id string) error {
 // UpdateStaffProfile changes the person, not their access. Role and scope move
 // through role assignments, which are a separate concern with their own audit.
 func (s *Repo) UpdateStaffProfile(ctx context.Context, id, firstName, lastName string) error {
+	cond, args := shared.BusinessCond(ctx, "business_id", []any{id, firstName, lastName})
 	tag, err := s.pool.Exec(ctx,
-		`UPDATE staff_users SET first_name = $2, last_name = $3, updated_at = NOW() WHERE id = $1`,
-		id, firstName, lastName)
+		`UPDATE staff_users SET first_name = $2, last_name = $3, updated_at = NOW() WHERE id = $1`+cond, args...)
 	if err != nil {
 		return err
 	}

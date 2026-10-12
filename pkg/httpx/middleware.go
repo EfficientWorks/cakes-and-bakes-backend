@@ -80,7 +80,7 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Authorization,Content-Type,Idempotency-Key,X-Branch-Id,X-Device-Id,X-Cart-Token")
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization,Content-Type,Idempotency-Key,X-Branch-Id,X-Device-Id,X-Cart-Token,X-Business")
 				// Without this, browser JavaScript cannot read either header.
 				// X-Cart-Token is how a guest cart is handed back to the
 				// client, so guest checkout is broken cross-origin without it.

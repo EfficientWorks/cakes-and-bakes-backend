@@ -7,11 +7,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/catalog/catalogapi"
 )
 
 func (s *Repo) ListCoupons(ctx context.Context) ([]catalogapi.Coupon, error) {
-	rows, err := s.pool.Query(ctx, couponSelect+` WHERE deleted_at IS NULL ORDER BY created_at DESC`)
+	rows, err := s.pool.Query(ctx,
+		couponSelect+` WHERE deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $1 ORDER BY created_at DESC`,
+		tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +32,8 @@ func (s *Repo) ListCoupons(ctx context.Context) ([]catalogapi.Coupon, error) {
 }
 
 func (s *Repo) GetCoupon(ctx context.Context, id string) (*catalogapi.Coupon, error) {
-	return scanCoupon(s.pool.QueryRow(ctx, couponSelect+` WHERE id = $1 AND deleted_at IS NULL`, id))
+	return scanCoupon(s.pool.QueryRow(ctx,
+		couponSelect+` WHERE id = $1 AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $2`, id, tenant.BusinessParam(ctx)))
 }
 
 // GetCouponByCode finds a live coupon by the code a shopper typed.
@@ -39,7 +43,8 @@ func (s *Repo) GetCoupon(ctx context.Context, id string) (*catalogapi.Coupon, er
 // distinction worth making.
 func (s *Repo) GetCouponByCode(ctx context.Context, code string) (*catalogapi.Coupon, error) {
 	return scanCoupon(s.pool.QueryRow(ctx,
-		couponSelect+` WHERE upper(code) = upper($1) AND deleted_at IS NULL`, code))
+		couponSelect+` WHERE upper(code) = upper($1) AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $2`,
+		code, tenant.BusinessParam(ctx)))
 }
 
 // ActiveNewCustomerCouponID returns the id of the live new-customer coupon,
@@ -50,7 +55,8 @@ func (s *Repo) ActiveNewCustomerCouponID(ctx context.Context) (string, error) {
 	err := s.pool.QueryRow(ctx, `
 		SELECT id::text FROM coupons
 		 WHERE applies_to = 'new_customer' AND status = 'active' AND deleted_at IS NULL
-		 LIMIT 1`).Scan(&id)
+		   AND business_id IS NOT DISTINCT FROM $1
+		 LIMIT 1`, tenant.BusinessParam(ctx)).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
 	}
@@ -61,9 +67,10 @@ func (s *Repo) ActiveNewCustomerCouponID(ctx context.Context) (string, error) {
 func (s *Repo) ListStorefrontCoupons(ctx context.Context, f StorefrontCouponFilter) ([]catalogapi.Coupon, error) {
 	q := couponSelect + `
 		WHERE deleted_at IS NULL
+		  AND business_id IS NOT DISTINCT FROM $1
 		  AND status = 'active'
 		  AND (usage_limit IS NULL OR redeemed_count < usage_limit)`
-	args := []interface{}{}
+	args := []interface{}{tenant.BusinessParam(ctx)}
 	if f.BranchID != "" {
 		args = append(args, f.BranchID)
 		q += fmt.Sprintf(" AND (branch_id IS NULL OR branch_id = $%d::uuid)", len(args))

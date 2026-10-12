@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
-	"net/http"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -91,32 +89,7 @@ func (p *PostgresStorer) Receive(ctx context.Context, imageID, _ string, r io.Re
 		return err
 	}
 
-	// One byte over the cap is a rejection rather than a truncation: storing a
-	// cropped file that looks like a successful upload is worse than refusing.
-	var buf bytes.Buffer
-	written, err := io.Copy(&buf, io.LimitReader(r, MaxUploadBytes+1))
-	if err != nil {
-		return fmt.Errorf("media: read upload: %w", err)
-	}
-	if written > MaxUploadBytes {
-		return ErrTooLarge
-	}
-	if written == 0 {
-		return fmt.Errorf("%w: empty upload", ErrUnsupportedType)
-	}
-
-	detected := http.DetectContentType(buf.Bytes())
-	if base, _, err := mime.ParseMediaType(detected); err == nil {
-		detected = base
-	}
-	if _, ok := allowedContentTypes[detected]; !ok {
-		return fmt.Errorf("%w: %s", ErrUnsupportedType, detected)
-	}
-
-	// Stored at a sane size rather than at whatever the camera produced. Done
-	// here, once, rather than on the way out: every read of this row would
-	// otherwise pay for the resize again.
-	stored, storedType, err := Normalise(buf.Bytes(), detected)
+	stored, storedType, err := prepareImage(r)
 	if err != nil {
 		return err
 	}

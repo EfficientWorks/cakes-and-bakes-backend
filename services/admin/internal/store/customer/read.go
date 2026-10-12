@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"bakehouse/pkg/tenant"
 	"bakehouse/services/admin/adminapi"
 	"bakehouse/services/admin/internal/store/shared"
 )
@@ -18,6 +19,10 @@ func (s *Repo) ListCustomers(ctx context.Context, f adminapi.CustomerListFilter)
 
 	where := []string{"c.deleted_at IS NULL"}
 	args := []interface{}{}
+	if tenant.Scoped(ctx) {
+		args = append(args, tenant.BusinessParam(ctx))
+		where = append(where, fmt.Sprintf("c.business_id IS NOT DISTINCT FROM $%d", len(args)))
+	}
 	if f.Search != "" {
 		args = append(args, "%"+f.Search+"%")
 		idx := len(args)
@@ -109,11 +114,12 @@ func (s *Repo) GetCustomerDetail(ctx context.Context, customerID, branchID strin
 			WHERE o.customer_id = c.id AND o.status <> 'cancelled'
 			  AND ($2 = '' OR o.branch_id = $2::uuid)
 		) stats ON true
-		WHERE c.id = $1 AND c.deleted_at IS NULL`
+		WHERE c.id = $1 AND c.deleted_at IS NULL
+		  AND (NOT $3::boolean OR c.business_id IS NOT DISTINCT FROM $4::uuid)`
 
 	var c adminapi.CustomerRecord
 	var tagsRaw []byte
-	err := s.pool.QueryRow(ctx, q, customerID, branchID).Scan(&c.ID, &c.Email, &c.FirstName, &c.LastName, &c.MobileNumber, &c.IsVerified, &c.CreatedAt,
+	err := s.pool.QueryRow(ctx, q, customerID, branchID, tenant.Scoped(ctx), tenant.BusinessParam(ctx)).Scan(&c.ID, &c.Email, &c.FirstName, &c.LastName, &c.MobileNumber, &c.IsVerified, &c.CreatedAt,
 		&c.TotalOrders, &c.TotalSpendCents, &c.LastOrderAt, &tagsRaw)
 	if err != nil {
 		return nil, err
@@ -133,7 +139,7 @@ func (s *Repo) CustomerHasOrderInScope(ctx context.Context, customerID, branchID
 }
 
 func (s *Repo) ListCustomerOrders(ctx context.Context, customerID, branchID string) ([]adminapi.CustomerOrderSummary, error) {
-	const q = `
+	q := `
 		SELECT o.id, o.reference, o.branch_id, coalesce(b.name, ''), o.status,
 		       o.fulfilment_type,
 		       trim(coalesce(o.recipient_first_name, '') || ' ' || coalesce(o.recipient_last_name, '')),
@@ -144,8 +150,9 @@ func (s *Repo) ListCustomerOrders(ctx context.Context, customerID, branchID stri
 		  LEFT JOIN branches b ON b.id = o.branch_id
 		 WHERE o.customer_id = $1
 		   AND ($2 = '' OR o.branch_id = $2::uuid)
+		   AND ` + customerInBusiness(3) + `
 		 ORDER BY o.created_at DESC LIMIT 100`
-	rows, err := s.pool.Query(ctx, q, customerID, branchID)
+	rows, err := s.pool.Query(ctx, q, customerID, branchID, tenant.Scoped(ctx), tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -167,10 +174,11 @@ func (s *Repo) ListCustomerOrders(ctx context.Context, customerID, branchID stri
 }
 
 func (s *Repo) ListCustomerNotes(ctx context.Context, customerID string) ([]adminapi.CustomerNote, error) {
-	const q = `
+	q := `
 		SELECT id, customer_id, author_staff_id, note, created_at
-		FROM customer_notes WHERE customer_id = $1 ORDER BY created_at DESC`
-	rows, err := s.pool.Query(ctx, q, customerID)
+		FROM customer_notes WHERE customer_id = $1 AND ` + customerInBusiness(2) + `
+		ORDER BY created_at DESC`
+	rows, err := s.pool.Query(ctx, q, customerID, tenant.Scoped(ctx), tenant.BusinessParam(ctx))
 	if err != nil {
 		return nil, err
 	}

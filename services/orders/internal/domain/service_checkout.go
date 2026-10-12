@@ -446,7 +446,7 @@ func (s *Service) CreateOrder(ctx context.Context, id CartIdentity, req CreateOr
 	case req.PaymentIntentID != "":
 		payment, err = s.payments.VerifyIntent(ctx, req.PaymentIntentID, total)
 	default:
-		payment, err = s.payments.Capture(ctx, total, "USD", req.PaymentMethodID, req.IdempotencyKey)
+		payment, err = s.payments.Capture(ctx, total, branch.Currency, req.PaymentMethodID, req.IdempotencyKey)
 	}
 	if err != nil {
 		// Authentication needed is not a decline: it is passed through with
@@ -479,7 +479,7 @@ func (s *Service) CreateOrder(ctx context.Context, id CartIdentity, req CreateOr
 		ScheduledDate: *cart.ScheduledDate, SlotStart: *cart.SlotStart, SlotEnd: *cart.SlotEnd, SlotCapacityID: &slot.ID,
 		SubtotalCents: subtotal, DeliveryFeeCents: deliveryFee, TaxCents: tax, TipCents: cart.TipCents,
 		DiscountCents: discountCents, DiscountCode: cart.DiscountCode,
-		TotalCents: total, Currency: "USD",
+		TotalCents: total, Currency: branch.Currency,
 		Status:         firstNonEmpty(requestedStatus, ordersapi.StatusPlaced),
 		IdempotencyKey: req.IdempotencyKey, MarketingOptIn: req.MarketingOptIn,
 		Notes:   trimPtr(req.Notes),
@@ -521,7 +521,7 @@ func (s *Service) CreateOrder(ctx context.Context, id CartIdentity, req CreateOr
 			// COD still gets a payment row, pending rather than captured, so
 			// the money owed is in the same ledger as everything else and the
 			// day-close reconciliation has one place to look.
-			s.payments.RecordPending(ctx, created.ID, branch.ID, "cash", total, "USD")
+			s.payments.RecordPending(ctx, created.ID, branch.ID, "cash", total, branch.Currency)
 		}
 		// Counted once, and only once the order exists. Doing it at apply
 		// time would let a shopper burn a limited coupon by typing the code
