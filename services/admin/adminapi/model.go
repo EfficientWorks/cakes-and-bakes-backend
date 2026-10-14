@@ -234,8 +234,13 @@ type CustomerRecord struct {
 }
 
 type CustomerOrderSummary struct {
-	ID             string    `json:"id"`
-	Reference      string    `json:"reference"`
+	ID        string `json:"id"`
+	Reference string `json:"reference"`
+	// The store's bill number, the number staff and customers know the
+	// order by; orderNo is the same number (as the POS and KDS call it).
+	// Null on an order that never got one.
+	BillNo         *int      `json:"billNo"`
+	OrderNo        *int      `json:"orderNo"`
 	BranchID       string    `json:"branchId"`
 	BranchName     string    `json:"branchName"`
 	Status         string    `json:"status"`

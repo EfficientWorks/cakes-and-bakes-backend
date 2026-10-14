@@ -163,7 +163,11 @@ func orderSummaryDTO(o *ordersapi.Order) orderSummaryDTOType {
 // --- Public tracking DTO (SF-32): deliberately minimal ------------------------
 
 type trackingDTOType struct {
-	Reference      string                 `json:"reference"`
+	Reference string `json:"reference"`
+	// The store's bill number the order is known by; orderNo is the same
+	// number. Null on an order that never got one.
+	BillNo         *int                   `json:"billNo"`
+	OrderNo        *int                   `json:"orderNo"`
 	Status         string                 `json:"status"`
 	Recipient      string                 `json:"recipient"`
 	FulfilmentType string                 `json:"fulfilmentType"`
@@ -175,7 +179,8 @@ type trackingDTOType struct {
 
 func trackingDTO(o *ordersapi.Order) trackingDTOType {
 	out := trackingDTOType{
-		Reference: o.Reference, Status: o.Status, Recipient: o.RecipientFirstName + " " + initialOf(o.RecipientLastName),
+		Reference: o.Reference, BillNo: o.BillNo, OrderNo: o.BillNo,
+		Status: o.Status, Recipient: o.RecipientFirstName + " " + initialOf(o.RecipientLastName),
 		FulfilmentType: o.FulfilmentType, ScheduledDate: o.ScheduledDate.Format(dateFmt), SlotStart: o.SlotStart, SlotEnd: o.SlotEnd,
 	}
 	for _, e := range o.Timeline {

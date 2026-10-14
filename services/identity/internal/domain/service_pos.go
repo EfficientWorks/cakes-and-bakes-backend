@@ -156,7 +156,7 @@ func (s *Service) ValidateBusinessID(ctx context.Context, businessID, ip string)
 
 	businessID = strings.TrimSpace(businessID)
 	if businessID == "" {
-		return nil, apperr.New("INVALID_BUSINESS_ID", apperr.CategoryAuthentication, "Incorrect Store ID.")
+		return nil, apperr.New("INVALID_BUSINESS_ID", apperr.CategoryAuthentication, "Incorrect location ID.")
 	}
 
 	/*
@@ -181,7 +181,7 @@ func (s *Service) ValidateBusinessID(ctx context.Context, businessID, ip string)
 
 	branchID, name, err := s.branches.BranchByBusinessID(ctx, businessID)
 	if err != nil {
-		return nil, apperr.New("INVALID_BUSINESS_ID", apperr.CategoryAuthentication, "Incorrect Store ID.")
+		return nil, apperr.New("INVALID_BUSINESS_ID", apperr.CategoryAuthentication, "Incorrect location ID.")
 	}
 	if err := s.assertOutletActive(ctx, branchID); err != nil {
 		return nil, err

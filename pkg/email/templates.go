@@ -71,41 +71,40 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
 	case TemplateOrderReady:
-		reference := extractString(data, "reference")
 		recipientName := extractString(data, "recipientName")
 		branchName := extractString(data, "branchName")
 		branchAddress := extractString(data, "branchAddress")
-		subject := fmt.Sprintf("Your Order is Ready for Pickup – %s", reference)
+		label, number := orderLabel(data)
+		subject := fmt.Sprintf("Your Order is Ready for Pickup – %s", label)
 		where := strong(branchName)
 		if branchAddress != "" {
 			where += `<br>` + template.HTMLEscapeString(branchAddress)
 		}
-		body := eyebrow("Order #"+template.HTMLEscapeString(reference)) +
+		body := eyebrow(template.HTMLEscapeString(label)) +
 			h1Colour("Ready for pickup", brandGreen) +
 			para("Hi "+strong(recipientName)+",<br>Great news &ndash; your order is ready and waiting for you.") +
 			noticeBox(`<strong style="font-weight:700;">Pickup from :</strong>&nbsp; `+where) +
-			paraMuted("Please bring your order reference "+strong(reference)+" when collecting.")
+			paraMuted("Please bring your "+orderNumberNoun(data)+" "+strong(number)+" when collecting.")
 		htmlBody := shell(shellOptions{Title: "Order Ready"}, body)
-		textBody := fmt.Sprintf("{{business}} – Order Ready\n\nHi %s, your order %s is ready for pickup at %s.\n\nPlease bring your order reference %s when collecting.",
-			recipientName, reference, branchName, reference)
+		textBody := fmt.Sprintf("{{business}} – Order Ready\n\nHi %s, your order %s is ready for pickup at %s.\n\nPlease bring your %s %s when collecting.",
+			recipientName, label, branchName, orderNumberNoun(data), number)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
 	case TemplateOrderDelivered:
-		reference := extractString(data, "reference")
 		recipientName := extractString(data, "recipientName")
-		subject := fmt.Sprintf("Your Order Has Been Delivered – %s", reference)
-		body := eyebrow("Order #"+template.HTMLEscapeString(reference)) +
+		label, _ := orderLabel(data)
+		subject := fmt.Sprintf("Your Order Has Been Delivered – %s", label)
+		body := eyebrow(template.HTMLEscapeString(label)) +
 			h1("Delivered!") +
 			para("Hi "+strong(recipientName)+",<br>Your order has been delivered. We hope you loved it!") +
 			paraMuted("Thank you for choosing {{business}}. We&rsquo;d love to see you again soon.") +
 			button("Order Again", "https://shop.invalid/shop")
 		htmlBody := shell(shellOptions{Title: "Order Delivered"}, body)
 		textBody := fmt.Sprintf("{{business}} – Delivered!\n\nHi %s, your order %s has been delivered. Thank you for choosing {{business}}!",
-			recipientName, reference)
+			recipientName, label)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
 	case TemplateBranchNewOrder:
-		reference := extractString(data, "reference")
 		recipientName := extractString(data, "recipientName")
 		scheduledDate := extractString(data, "scheduledDate")
 		slotStart := extractString(data, "slotStart")
@@ -115,20 +114,21 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 			totalCents = int64(extractInt(data, "total", 0))
 		}
 		total := Money(totalCents)
-		subject := fmt.Sprintf("New Order Received – %s", reference)
+		label, number := orderLabel(data)
+		subject := fmt.Sprintf("New Order Received – %s", label)
 		body := h1("New order received") +
-			orderNoBox(reference) +
+			orderNoBoxTitled(orderBoxTitle(data), number) +
 			para(strong("Customer :")+" "+template.HTMLEscapeString(recipientName)) +
 			para(strong("Scheduled :")+" "+template.HTMLEscapeString(scheduleLine(scheduledDate, slotStart, slotEnd))) +
 			para(strong("Order Total :")+" "+template.HTMLEscapeString(total)) +
 			paraMuted("Log in to the staff portal to view and manage this order.")
 		htmlBody := shell(shellOptions{Title: "New Order"}, body)
-		textBody := fmt.Sprintf("{{business}} – New Order\n\nReference: %s\nCustomer: %s\nScheduled: %s, %s – %s\nTotal: %s\n\nLog in to the staff portal to manage this order.",
-			reference, recipientName, scheduledDate, slotStart, slotEnd, total)
+		textBody := fmt.Sprintf("{{business}} – New Order\n\n%s\nCustomer: %s\nScheduled: %s, %s – %s\nTotal: %s\n\nLog in to the staff portal to manage this order.",
+			label, recipientName, scheduledDate, slotStart, slotEnd, total)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
 	case TemplateOrderConfirmation:
-		reference := extractString(data, "reference")
+		confLabel, confNumber := orderLabel(data)
 		recipientName := extractString(data, "recipientName")
 		purchaserName := strings.TrimSpace(extractString(data, "purchaserName"))
 		scheduledDate := extractString(data, "scheduledDate")
@@ -237,40 +237,39 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 
 		body := h1("Order confirmation") +
 			para(intro) +
-			orderNoBox(reference) +
+			orderNoBoxTitled(orderBoxTitle(data), confNumber) +
 			fmt.Sprintf(`<p style="margin:0 0 6px;font-size:13px;color:%s;text-align:center;"><strong style="font-weight:700;">SCHEDULED :</strong> %s</p>`, brandInk, template.HTMLEscapeString(scheduleLine(scheduledDate, slotStart, slotEnd))) +
 			sectionLabel("Items") +
 			`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` + itemsHTML.String() + `</table>` +
 			`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;">` + totals.String() + `</table>` +
 			button("Track shipment", trackingUrl)
 
-		subject := fmt.Sprintf("Order Confirmed – %s", reference)
+		subject := fmt.Sprintf("Order Confirmed – %s", confLabel)
 		htmlBody := shell(shellOptions{Title: "Order confirmation", HeaderRight: pill(itemsLabel + " \U0001F6D2")}, body)
 
-		textBody := fmt.Sprintf("{{business}} – Order Confirmed\n\nHi %s! Your order for %s has been received and is being prepared.\n\nOrder No: %s\nScheduled: %s\n\nItems:\n%s\n%s\n\nTrack your order: %s",
-			purchaserName, recipientName, reference, scheduleLine(scheduledDate, slotStart, slotEnd), itemsText, breakdownText.String(), trackingUrl)
+		textBody := fmt.Sprintf("{{business}} – Order Confirmed\n\nHi %s! Your order for %s has been received and is being prepared.\n\n%s\nScheduled: %s\n\nItems:\n%s\n%s\n\nTrack your order: %s",
+			purchaserName, recipientName, confLabel, scheduleLine(scheduledDate, slotStart, slotEnd), itemsText, breakdownText.String(), trackingUrl)
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
 	case TemplateOrderAmended:
-		reference := extractString(data, "reference")
 		recipientName := extractString(data, "recipientName")
 		reason := extractString(data, "reason")
 
-		subject := fmt.Sprintf("Your Order Has Been Updated – %s", reference)
-		body := eyebrow("Order #"+template.HTMLEscapeString(reference)) +
+		label, number := orderLabel(data)
+		subject := fmt.Sprintf("Your Order Has Been Updated – %s", label)
+		body := eyebrow(template.HTMLEscapeString(label)) +
 			h1Colour("Order Updated", brandViolet) +
 			para("Hi "+strong(recipientName)+",<br>Your order has been updated by our team.") +
 			noticeBox(`<strong style="font-weight:700;">Reason :</strong>&nbsp; `+template.HTMLEscapeString(reason)) +
 			para("If you have any questions, Please Contact us")
 		htmlBody := shell(shellOptions{Title: "Order Updated"}, body)
 
-		textBody := fmt.Sprintf("{{business}} – Order Updated\n\nHi %s,\n\nYour order %s has been updated.\n\nReason: %s\n\nIf you have questions, please contact us quoting your reference %s.",
-			recipientName, reference, reason, reference)
+		textBody := fmt.Sprintf("{{business}} – Order Updated\n\nHi %s,\n\nYour order %s has been updated.\n\nReason: %s\n\nIf you have questions, please contact us quoting your %s %s.",
+			recipientName, label, reason, orderNumberNoun(data), number)
 
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
 	case TemplateOrderCancelled:
-		reference := extractString(data, "reference")
 		recipientName := extractString(data, "recipientName")
 
 		// The reason is deliberately not shown.
@@ -280,15 +279,16 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		// placed the order. It stays on the order and in the audit trail,
 		// where anyone answering a question about it can see it.
 
-		subject := fmt.Sprintf("Order Cancelled – %s", reference)
-		body := eyebrow("Order #"+template.HTMLEscapeString(reference)) +
+		label, number := orderLabel(data)
+		subject := fmt.Sprintf("Order Cancelled – %s", label)
+		body := eyebrow(template.HTMLEscapeString(label)) +
 			h1Colour("Order Cancelled", brandRed) +
 			para("Hi "+strong(recipientName)+",<br>Unfortunately your order has been cancelled") +
-			para("If you believe this is an error or need help<br>Please Contact us quoting "+strong(reference))
+			para("If you believe this is an error or need help<br>Please Contact us quoting "+strong(number))
 		htmlBody := shell(shellOptions{Title: "Order Cancelled"}, body)
 
-		textBody := fmt.Sprintf("{{business}} – Order Cancelled\n\nHi %s,\n\nYour order %s has been cancelled.\n\nIf you have questions, please contact us quoting your reference %s.",
-			recipientName, reference, reference)
+		textBody := fmt.Sprintf("{{business}} – Order Cancelled\n\nHi %s,\n\nYour order %s has been cancelled.\n\nIf you have questions, please contact us quoting your %s %s.",
+			recipientName, label, orderNumberNoun(data), number)
 
 		return &RenderedEmail{Subject: subject, HTMLBody: htmlBody, TextBody: textBody}, nil
 
@@ -298,11 +298,7 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 	case TemplatePaymentLink:
 		// The bill number the counter knows the order by ("#74"); the order
 		// reference only when there is none.
-		reference := extractString(data, "reference")
-		label := "Order #" + reference
-		if bill := extractString(data, "billNo"); bill != "" {
-			label = "Bill No. #" + bill
-		}
+		label, _ := orderLabel(data)
 		name := extractString(data, "customerName")
 		url := extractString(data, "url")
 		amount := extractMoney(data, "amountCents")
@@ -667,4 +663,31 @@ func extractMoney(data map[string]interface{}, key string) string {
 	default:
 		return "$0.00"
 	}
+}
+
+// orderLabel is how an order is named in an email: by its bill number, the
+// number the store and the customer know it by ("Bill No. #46"), else by its
+// reference ("Order #BBUWNJ96Z6"). number is the bare value to quote.
+func orderLabel(data map[string]interface{}) (label, number string) {
+	if bill := strings.TrimSpace(extractString(data, "billNo")); bill != "" {
+		return "Bill No. #" + bill, "#" + bill
+	}
+	ref := extractString(data, "reference")
+	return "Order #" + ref, ref
+}
+
+// orderNumberNoun is what the quoted number is called in a sentence.
+func orderNumberNoun(data map[string]interface{}) string {
+	if strings.TrimSpace(extractString(data, "billNo")) != "" {
+		return "bill number"
+	}
+	return "order reference"
+}
+
+// orderBoxTitle heads the big number box.
+func orderBoxTitle(data map[string]interface{}) string {
+	if strings.TrimSpace(extractString(data, "billNo")) != "" {
+		return "Bill No"
+	}
+	return "Order No"
 }

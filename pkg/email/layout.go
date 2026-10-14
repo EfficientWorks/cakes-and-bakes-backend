@@ -199,11 +199,14 @@ func button(label, href string) string {
 }
 
 // orderNoBox is the pink panel with the reference in it.
-func orderNoBox(reference string) string {
+func orderNoBox(reference string) string { return orderNoBoxTitled("Order No", reference) }
+
+// orderNoBoxTitled is orderNoBox with its own heading ("Bill No").
+func orderNoBoxTitled(title, value string) string {
 	return fmt.Sprintf(`<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px;"><tr><td align="center" style="background-color:%s;border-radius:8px;padding:18px 16px;">
-  <p style="margin:0 0 6px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:%s;">Order No</p>
+  <p style="margin:0 0 6px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:%s;">%s</p>
   <p style="margin:0;font-size:30px;line-height:1.1;font-weight:800;letter-spacing:1px;color:%s;">%s</p>
-</td></tr></table>`, brandPink, brandInk, brandInk, template.HTMLEscapeString(reference))
+</td></tr></table>`, brandPink, brandInk, template.HTMLEscapeString(title), brandInk, template.HTMLEscapeString(value))
 }
 
 // noticeBox is the soft pink panel a reason or a code sits in.

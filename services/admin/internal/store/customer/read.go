@@ -140,7 +140,7 @@ func (s *Repo) CustomerHasOrderInScope(ctx context.Context, customerID, branchID
 
 func (s *Repo) ListCustomerOrders(ctx context.Context, customerID, branchID string) ([]adminapi.CustomerOrderSummary, error) {
 	q := `
-		SELECT o.id, o.reference, o.branch_id, coalesce(b.name, ''), o.status,
+		SELECT o.id, o.reference, o.bill_no, o.branch_id, coalesce(b.name, ''), o.status,
 		       o.fulfilment_type,
 		       trim(coalesce(o.recipient_first_name, '') || ' ' || coalesce(o.recipient_last_name, '')),
 		       to_char(o.scheduled_date, 'YYYY-MM-DD'), coalesce(o.slot_start::text, ''),
@@ -163,11 +163,12 @@ func (s *Repo) ListCustomerOrders(ctx context.Context, customerID, branchID stri
 	out := []adminapi.CustomerOrderSummary{}
 	for rows.Next() {
 		var o adminapi.CustomerOrderSummary
-		if err := rows.Scan(&o.ID, &o.Reference, &o.BranchID, &o.BranchName, &o.Status,
+		if err := rows.Scan(&o.ID, &o.Reference, &o.BillNo, &o.BranchID, &o.BranchName, &o.Status,
 			&o.FulfilmentType, &o.RecipientName, &o.ScheduledDate, &o.SlotStart,
 			&o.ItemCount, &o.TotalCents, &o.CreatedAt); err != nil {
 			return nil, err
 		}
+		o.OrderNo = o.BillNo
 		out = append(out, o)
 	}
 	return out, rows.Err()

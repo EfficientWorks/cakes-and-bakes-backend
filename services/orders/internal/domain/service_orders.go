@@ -322,7 +322,7 @@ func (s *Service) sendSimpleNotice(ctx context.Context, o *ordersapi.Order, temp
 		Template:   template,
 		BusinessID: businessOf(o),
 		Data: map[string]interface{}{
-			"reference": o.Reference, "recipientName": o.RecipientFirstName + " " + o.RecipientLastName,
+			"reference": o.Reference, "billNo": billNoLabel(o), "recipientName": o.RecipientFirstName + " " + o.RecipientLastName,
 			"reason": reason,
 		},
 	}); err != nil {
@@ -391,6 +391,7 @@ func (s *Service) setStatus(ctx context.Context, actorType string, actorID *stri
 						BusinessID: businessOf(o),
 						Data: map[string]interface{}{
 							"reference":     o.Reference,
+							"billNo":        billNoLabel(o),
 							"recipientName": o.RecipientFirstName + " " + o.RecipientLastName,
 							"branchName":    branchName,
 							"branchAddress": branchAddress,
@@ -408,6 +409,7 @@ func (s *Service) setStatus(ctx context.Context, actorType string, actorID *stri
 						BusinessID: businessOf(o),
 						Data: map[string]interface{}{
 							"reference":     o.Reference,
+							"billNo":        billNoLabel(o),
 							"recipientName": o.RecipientFirstName + " " + o.RecipientLastName,
 						},
 					})

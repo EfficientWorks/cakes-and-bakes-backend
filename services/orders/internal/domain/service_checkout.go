@@ -660,6 +660,7 @@ func (s *Service) sendOrderConfirmationErr(ctx context.Context, o *ordersapi.Ord
 
 	data := map[string]interface{}{
 		"reference":      o.Reference,
+		"billNo":         billNoLabel(o),
 		"recipientName":  o.RecipientFirstName + " " + o.RecipientLastName,
 		"purchaserName":  strings.TrimSpace(o.PurchaserFirstName + " " + o.PurchaserLastName),
 		"scheduledDate":  o.ScheduledDate.Format("2006-01-02"),
