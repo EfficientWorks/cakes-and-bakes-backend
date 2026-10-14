@@ -63,6 +63,12 @@ func New(pool *pgxpool.Pool, cfg Config) *Module {
 // found; hosted payment pages return customers there.
 func (m *Module) UseShopURL(fn func(ctx context.Context) string) { m.svc.UseShopURL(fn) }
 
+// UseStoreCardCheck sets how a hosted checkout page checks the store takes
+// card on its website (see domain.Service.UseStoreCardCheck).
+func (m *Module) UseStoreCardCheck(fn func(ctx context.Context, branchID, provider string) error) {
+	m.svc.UseStoreCardCheck(fn)
+}
+
 // Configured reports whether a Stripe secret key was supplied.
 func (m *Module) Configured() bool { return m.configured }
 

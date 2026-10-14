@@ -31,6 +31,10 @@ type Service struct {
 	refunds             paymentsapi.Processor
 
 	onEvent paymentsapi.EventHandler
+
+	// storeCard says whether a store takes card on its website through a
+	// provider (nil error) or not. Set by UseStoreCardCheck; nil skips it.
+	storeCard func(ctx context.Context, branchID, provider string) error
 }
 
 // checkoutLabel is the single line item a customer sees on the hosted page.
@@ -49,6 +53,12 @@ func NewService(st *store.Store, storefrontBaseURL string) *Service {
 // UseShopURL sets how the business's own website is found, so a customer
 // paying business A's order returns to A's shop.
 func (s *Service) UseShopURL(fn func(ctx context.Context) string) { s.shopURL = fn }
+
+// UseStoreCardCheck sets how a hosted checkout page asks whether the store
+// takes card on its website, before any money moves.
+func (s *Service) UseStoreCardCheck(fn func(ctx context.Context, branchID, provider string) error) {
+	s.storeCard = fn
+}
 
 // shopBase is the origin a hosted payment page returns the customer to: the
 // business's registered website, else STOREFRONT_BASE_URL. Never from the

@@ -7,6 +7,7 @@ import (
 	"github.com/stripe/stripe-go/v83"
 
 	"bakehouse/pkg/apperr"
+	"bakehouse/services/payments/paymentsapi"
 )
 
 /*
@@ -42,10 +43,21 @@ type CheckoutSession struct {
 }
 
 // CreateCheckoutSession opens a Stripe Checkout page for amountCents.
-// returnPath is a path on the storefront, never a URL.
-func (s *Service) CreateCheckoutSession(ctx context.Context, amountCents int64, currency, customerEmail, returnPath, provider string) (*CheckoutSession, error) {
+// returnPath is a path on the storefront, never a URL. branchID, when given,
+// is the store the order is for: a store whose website card is switched off
+// is refused here, while nothing has been charged. (Refusing later, at order
+// creation, would leave the customer paid with no order.)
+func (s *Service) CreateCheckoutSession(ctx context.Context, amountCents int64, currency, customerEmail, returnPath, provider, branchID string) (*CheckoutSession, error) {
 	if err := s.requireCheckout(provider); err != nil {
 		return nil, err
+	}
+	if branchID != "" && s.storeCard != nil {
+		if provider == "" {
+			provider = paymentsapi.ProviderStripe
+		}
+		if err := s.storeCard(ctx, branchID, strings.ToLower(strings.TrimSpace(provider))); err != nil {
+			return nil, err
+		}
 	}
 	if amountCents <= 0 {
 		return nil, apperr.Validation("amountCents must be greater than zero.")

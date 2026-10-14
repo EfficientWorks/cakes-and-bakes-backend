@@ -166,7 +166,7 @@ func (s *Repo) RecordCashCollected(ctx context.Context, orderID, staffID string)
 		UPDATE orders
 		   SET payment_status = 'captured',
 		       cash_collected_at = COALESCE($3::timestamptz, NOW()),
-		       cash_collected_by = $2,
+		       cash_collected_by = $2::text::uuid,
 		       -- Whoever collected the cash settled the order.
 		       settled_by = COALESCE(settled_by, $2::text),
 		       updated_at = NOW()
@@ -185,6 +185,52 @@ func (s *Repo) RecordCashCollected(ctx context.Context, orderID, staffID string)
 		UPDATE payments SET status = 'captured', captured_at = COALESCE($2::timestamptz, NOW())
 		 WHERE order_id = $1 AND method = 'cash' AND status = 'pending'`, orderID, timex.EventTimeFrom(ctx))
 	return true, err
+}
+
+// SettleCashOnFulfilment records the cash of a cash order as collected, at the
+// moment the order is handed over (delivered / collected).
+//
+// Same bookkeeping as RecordCashCollected, but for any cash order — a
+// cash-on-delivery order or one whose method is plain 'cash' — and guarded the
+// same way: only an order still pending moves, so a second call changes
+// nothing and reports false.
+//
+// One transaction: the order and its payment row are both settled, or
+// neither is.
+func (s *Repo) SettleCashOnFulfilment(ctx context.Context, orderID, staffID string) (bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE orders
+		   SET payment_status = 'captured',
+		       cash_collected_at = COALESCE($3::timestamptz, NOW()),
+		       cash_collected_by = $2::text::uuid,
+		       settled_by = COALESCE(settled_by, $2::text),
+		       updated_at = NOW()
+		 WHERE id = $1
+		   AND payment_method IN ('cash', 'cash_on_delivery')
+		   AND payment_status = 'pending'`, orderID, staffID, timex.EventTimeFrom(ctx))
+	if err != nil {
+		return false, err
+	}
+	if tag.RowsAffected() == 0 {
+		return false, nil
+	}
+	// The payment row is the financial record; the order column is the copy
+	// the lists read. Both move together.
+	if _, err := tx.Exec(ctx, `
+		UPDATE payments SET status = 'captured', captured_at = COALESCE($2::timestamptz, NOW())
+		 WHERE order_id = $1 AND method = 'cash' AND status = 'pending'`, orderID, timex.EventTimeFrom(ctx)); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // SoftDeleteOrder hides an order everywhere without losing it.

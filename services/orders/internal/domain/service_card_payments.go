@@ -21,8 +21,8 @@ import (
 /*
  * Card payments through Stripe, as orders sees them.
  *
- *   - which providers a store offers: switched on for the store in admin AND
- *     configured on the server (cardProvidersFor);
+ *   - which providers the till offers: switched on for the store's POS in
+ *     admin AND configured on the server (cardProvidersFor);
  *   - payment links: a hosted page emailed to a counter customer, one open per
  *     order (SendPaymentLink / CancelPaymentLink);
  *   - what a provider webhook reports: a link paid becomes a bill payment and
@@ -47,7 +47,9 @@ const (
 // UseCardPayments plugs in the payments module's card seam.
 func (s *Service) UseCardPayments(cards paymentsapi.Cards) { s.cards = cards }
 
-// cardProvidersFor is what a store can take card payment through right now.
+// cardProvidersFor is what a store's till can take card payment through
+// right now: its POS card providers (the website has its own, read by the
+// storefront) that are configured on the server.
 func (s *Service) cardProvidersFor(ctx context.Context, branchID string) ([]string, error) {
 	if s.cards == nil {
 		return []string{}, nil
@@ -61,7 +63,7 @@ func (s *Service) cardProvidersFor(ctx context.Context, branchID string) ([]stri
 		configured[p] = true
 	}
 	out := []string{}
-	for _, p := range branch.CardProviders {
+	for _, p := range branch.PosCardProviders {
 		if configured[p] {
 			out = append(out, p)
 		}
@@ -95,12 +97,13 @@ func (s *Service) PaymentOptions(ctx context.Context, claims *auth.StaffClaims, 
 	if err != nil {
 		return nil, err
 	}
-	// Cash follows the store's "Accept cash on delivery" switch in admin.
+	// Cash follows the store's POS cash switch in admin; a card on the
+	// store's own terminal is always allowed.
 	branch, err := s.branches.GetBranch(ctx, branchID)
 	if err != nil {
 		return nil, apperr.NotFound("Store not found.")
 	}
-	return &PaymentOptions{BranchID: branchID, Cash: branch.AcceptsCashOnDelivery, ManualCard: true, CardProviders: providers}, nil
+	return &PaymentOptions{BranchID: branchID, Cash: branch.PosAcceptsCash, ManualCard: true, CardProviders: providers}, nil
 }
 
 // --- Payment links ---------------------------------------------------------------
@@ -348,13 +351,13 @@ func (s *Service) pickProvider(ctx context.Context, branchID, asked string) (str
 		}
 	}
 	return "", apperr.New("PROVIDER_NOT_ENABLED", apperr.CategoryBusinessRule,
-		"This store does not take card payments through "+asked+". Switch it on for the store in admin.").
+		"This store does not take card payments through "+asked+". Switch it on for the store's POS in admin.").
 		WithMeta(map[string]any{"cardProviders": providers})
 }
 
 func errNoCardProvider() error {
 	return apperr.New("PROVIDER_NOT_ENABLED", apperr.CategoryBusinessRule,
-		"This store has no online card provider switched on. Turn on Stripe for it in admin.")
+		"This store has no online card provider switched on for the POS. Turn on Stripe for its POS in admin.")
 }
 
 // outstandingCents is what is still owed on a bill, or on the whole order.

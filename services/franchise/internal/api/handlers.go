@@ -59,8 +59,12 @@ type branchRequest struct {
 	TaxRatePct            *float64                   `json:"taxRatePct"`
 	AcceptsCashOnDelivery bool                       `json:"acceptsCashOnDelivery"`
 	CODMaxOrderCents      *int64                     `json:"codMaxOrderCents"`
-	// Card providers ("stripe"); omitted means Stripe.
+	// Website card providers ("stripe"); omitted means Stripe.
 	CardProviders []string `json:"cardProviders,omitempty"`
+	// POS till: cash (omitted: same as acceptsCashOnDelivery) and payment-link
+	// card providers (omitted: Stripe).
+	PosAcceptsCash   *bool    `json:"posAcceptsCash,omitempty"`
+	PosCardProviders []string `json:"posCardProviders,omitempty"`
 	// Pickup / delivery hours; omitted, slots use openingHours.
 	PickupHours         []franchiseapi.DayHours `json:"pickupHours,omitempty"`
 	DeliveryHours       []franchiseapi.DayHours `json:"deliveryHours,omitempty"`
@@ -253,6 +257,10 @@ func branchFromRequest(req branchRequest) franchiseapi.Branch {
 	if req.TaxName != "" {
 		taxName = &req.TaxName
 	}
+	posCash := req.AcceptsCashOnDelivery
+	if req.PosAcceptsCash != nil {
+		posCash = *req.PosAcceptsCash
+	}
 	return franchiseapi.Branch{
 		Name: req.Name, Code: req.Code,
 		Type: franchiseapi.BranchTypeRetail, OwnershipType: ownershipType,
@@ -264,8 +272,10 @@ func branchFromRequest(req branchRequest) franchiseapi.Branch {
 		DeliveryFeeCents: req.DeliveryFeeCents, MinOrderCents: req.MinOrderCents,
 		TaxName: taxName, TaxRatePct: req.TaxRatePct,
 		AcceptsCashOnDelivery: req.AcceptsCashOnDelivery, CODMaxOrderCents: req.CODMaxOrderCents,
-		CardProviders: req.CardProviders,
-		PickupHours:   req.PickupHours, DeliveryHours: req.DeliveryHours,
+		CardProviders:    req.CardProviders,
+		PosAcceptsCash:   posCash,
+		PosCardProviders: req.PosCardProviders,
+		PickupHours:      req.PickupHours, DeliveryHours: req.DeliveryHours,
 		SameFulfilmentHours: req.SameFulfilmentHours == nil || *req.SameFulfilmentHours,
 		DeliveryPricing:     derefPricing(req.DeliveryPricing),
 		LocationCode:        strx.NilIfEmpty(req.BusinessID),
@@ -305,8 +315,11 @@ type branchPatchRequest struct {
 	TaxRatePct            *float64                    `json:"taxRatePct,omitempty"`
 	AcceptsCashOnDelivery *bool                       `json:"acceptsCashOnDelivery,omitempty"`
 	CODMaxOrderCents      *int64                      `json:"codMaxOrderCents,omitempty"`
-	// Replaces the store's card providers ("stripe"); [] = none.
+	// Replaces the store's website card providers ("stripe"); [] = none.
 	CardProviders *[]string `json:"cardProviders,omitempty"`
+	// POS till: cash on/off, and its payment-link card providers ([] = none).
+	PosAcceptsCash   *bool     `json:"posAcceptsCash,omitempty"`
+	PosCardProviders *[]string `json:"posCardProviders,omitempty"`
 	// Replace the pickup / delivery hours whole; [] = back to openingHours.
 	PickupHours         *[]franchiseapi.DayHours `json:"pickupHours,omitempty"`
 	DeliveryHours       *[]franchiseapi.DayHours `json:"deliveryHours,omitempty"`
@@ -330,7 +343,8 @@ func (req branchPatchRequest) toPatch() franchiseapi.BranchPatch {
 		AcceptsCashOnDelivery: req.AcceptsCashOnDelivery, CODMaxOrderCents: req.CODMaxOrderCents,
 		DeliveryPricing: req.DeliveryPricing,
 		CardProviders:   req.CardProviders,
-		PickupHours:     req.PickupHours, DeliveryHours: req.DeliveryHours,
+		PosAcceptsCash:  req.PosAcceptsCash, PosCardProviders: req.PosCardProviders,
+		PickupHours: req.PickupHours, DeliveryHours: req.DeliveryHours,
 		SameFulfilmentHours: req.SameFulfilmentHours,
 	}
 }

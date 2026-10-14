@@ -129,8 +129,15 @@ type Branch struct {
 	CODMaxOrderCents      *int64
 
 	// CardProviders are the card providers this store takes payment through
-	// ("stripe"). Empty: card only on its own terminal.
+	// on the website ("stripe"). Empty: the website takes no card.
 	CardProviders []string
+
+	// The till's own payment switches, separate from the website's
+	// (AcceptsCashOnDelivery / CardProviders). PosCardProviders are the
+	// providers the till may send payment links through; a card on the
+	// store's own terminal is always allowed.
+	PosAcceptsCash   bool
+	PosCardProviders []string
 
 	// Pickup and delivery hours (see fulfilment_hours.go). Empty: slots come
 	// from OpeningHours. SameFulfilmentHours: delivery uses pickup's hours.
@@ -201,6 +208,8 @@ type BranchPatch struct {
 	AcceptsCashOnDelivery *bool
 	CODMaxOrderCents      *int64
 	CardProviders         *[]string
+	PosAcceptsCash        *bool
+	PosCardProviders      *[]string
 	PickupHours           *[]DayHours
 	DeliveryHours         *[]DayHours
 	SameFulfilmentHours   *bool

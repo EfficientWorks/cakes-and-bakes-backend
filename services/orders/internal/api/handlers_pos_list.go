@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"bakehouse/pkg/apperr"
 	"bakehouse/pkg/httpx"
 	"bakehouse/pkg/timex"
@@ -209,7 +211,7 @@ func (h *Handler) SetPOSOrderStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary		Mark an order delivered or collected
-// @Description	Closes the order out and emails the customer. The one-tap version of setting status to fulfilled — which is what a counter does when it hands a website order over.
+// @Description	Closes the order out and emails the customer. The one-tap version of setting status to fulfilled — which is what a counter does when it hands a website order over. The order must be ready or out for delivery. A cash order (cash, or cash on delivery) has its cash collected with it, so paymentStatus comes back captured; a card order must already be captured (PAYMENT_PENDING otherwise).
 // @Tags			pos
 // @Accept			json
 // @Produce		json
@@ -221,7 +223,23 @@ func (h *Handler) SetPOSOrderStatus(w http.ResponseWriter, r *http.Request) {
 // @Param			body	body	markStatusRequest	false	"Request body (statusAt optional)"
 // @Router			/pos/orders/{orderId}/mark-fulfilled [post]
 func (h *Handler) MarkPOSOrderFulfilled(w http.ResponseWriter, r *http.Request) {
-	h.MarkFulfilledAdmin(w, r)
+	var req markStatusRequest
+	_ = httpx.DecodeJSON(r, &req)
+	r, err := httpx.WithEventTime(r, "statusAt", req.StatusAt)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	paymentStatus, err := h.svc.MarkFulfilledPOS(r.Context(), staffClaims(r), chi.URLParam(r, "orderId"), req.Note)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.OK(w, map[string]interface{}{
+		"success":       true,
+		"status":        ordersapi.StatusFulfilled,
+		"paymentStatus": paymentStatus,
+	})
 }
 
 // @Summary		Cancel an order

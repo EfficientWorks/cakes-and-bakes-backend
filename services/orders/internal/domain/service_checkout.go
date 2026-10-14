@@ -432,6 +432,16 @@ func (s *Service) CreateOrder(ctx context.Context, id CartIdentity, req CreateOr
 			return nil, err
 		}
 	}
+	// The store's website card switch. Checked only before a direct charge:
+	// a hosted-checkout intent (PaymentIntentID) has already taken the money,
+	// and refusing the order then would leave the customer charged with
+	// nothing to show for it. The storefront refuses to open that page for a
+	// store whose website card is off.
+	if req.PaymentMethod != PaymentMethodCOD && req.PaymentIntentID == "" &&
+		!branch.TakesCardThrough(franchiseapi.CardProviderStripe) {
+		return nil, apperr.New("CARD_NOT_AVAILABLE", apperr.CategoryBusinessRule,
+			"This outlet is not taking card payments online right now.")
+	}
 
 	// Two ways in. A first attempt creates and confirms an intent from the
 	// payment method; a retry after 3-D Secure verifies the intent the

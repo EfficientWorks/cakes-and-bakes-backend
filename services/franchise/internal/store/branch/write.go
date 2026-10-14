@@ -20,8 +20,9 @@ func (s *Repo) CreateBranch(ctx context.Context, b franchiseapi.Branch) (*franch
 			latitude, longitude, phone, email, timezone, opening_hours, fulfilment_types, delivery_zone,
 			delivery_fee_cents, min_order_cents, tax_name, tax_rate_pct,
 			accepts_cash_on_delivery, cod_max_order_cents, location_code, delivery_pricing, card_providers,
-			pickup_hours, delivery_hours, same_fulfilment_hours, business_id, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,'pending')
+			pickup_hours, delivery_hours, same_fulfilment_hours, business_id,
+			pos_accepts_cash, pos_card_providers, status)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,'pending')
 		RETURNING id`
 	if err := s.pool.QueryRow(ctx, q,
 		b.Name, b.Code, b.Type, b.OwnershipType, b.Street, b.City, b.State, b.Postcode, b.Country,
@@ -29,7 +30,8 @@ func (s *Repo) CreateBranch(ctx context.Context, b franchiseapi.Branch) (*franch
 		b.DeliveryFeeCents, b.MinOrderCents, b.TaxName, b.TaxRatePct,
 		b.AcceptsCashOnDelivery, b.CODMaxOrderCents,
 		coalesceBusinessID(b.LocationCode, b.Code), pricing, cardProvidersOrDefault(b.CardProviders),
-		hoursJSON(b.PickupHours), hoursJSON(b.DeliveryHours), b.SameFulfilmentHours, b.BusinessID).Scan(&id); err != nil {
+		hoursJSON(b.PickupHours), hoursJSON(b.DeliveryHours), b.SameFulfilmentHours, b.BusinessID,
+		b.PosAcceptsCash, cardProvidersOrDefault(b.PosCardProviders)).Scan(&id); err != nil {
 		return nil, fmt.Errorf("create branch: %w", err)
 	}
 	if err := s.MapDefaultProductsAndCategories(ctx, id); err != nil {
@@ -151,6 +153,12 @@ func (s *Repo) UpdateBranch(ctx context.Context, id string, patch franchiseapi.B
 	}
 	if patch.CardProviders != nil {
 		add("card_providers", *patch.CardProviders)
+	}
+	if patch.PosAcceptsCash != nil {
+		add("pos_accepts_cash", *patch.PosAcceptsCash)
+	}
+	if patch.PosCardProviders != nil {
+		add("pos_card_providers", *patch.PosCardProviders)
 	}
 	if patch.PickupHours != nil {
 		add("pickup_hours", hoursJSON(*patch.PickupHours))

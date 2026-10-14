@@ -33,6 +33,10 @@ type createCheckoutSessionRequest struct {
 	ReturnPath string `json:"returnPath" example:"/checkout"`
 	// Provider: "stripe" or omitted.
 	Provider string `json:"provider,omitempty" example:"stripe"`
+	// BranchID: the store the order is for. When given, a store that does not
+	// take card on its website is refused (422 CARD_NOT_AVAILABLE) before any
+	// payment page opens.
+	BranchID string `json:"branchId,omitempty"`
 }
 
 // checkoutSessionResponse is the Checkout Session body.
@@ -91,6 +95,7 @@ func (h *Handler) Providers(w http.ResponseWriter, r *http.Request) {
 //	@Param			body	body		createCheckoutSessionRequest	true	"Amount in minor units, ISO-4217 currency, and the storefront path to return to"
 //	@Success		200		{object}	httpx.Envelope{data=checkoutSessionResponse}
 //	@Failure		400		{object}	httpx.Envelope{error=httpx.ErrorBody}	"VALIDATION_FAILED"
+//	@Failure		422		{object}	httpx.Envelope{error=httpx.ErrorBody}	"CARD_NOT_AVAILABLE"
 //	@Failure		503		{object}	httpx.Envelope{error=httpx.ErrorBody}	"PAYMENTS_NOT_CONFIGURED or STRIPE_ERROR"
 //	@Router			/storefront/payments/checkout-session [post]
 func (h *Handler) CreateCheckoutSession(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +104,7 @@ func (h *Handler) CreateCheckoutSession(w http.ResponseWriter, r *http.Request) 
 		httpx.WriteError(w, r, err)
 		return
 	}
-	session, err := h.svc.CreateCheckoutSession(r.Context(), req.AmountCents, req.Currency, req.Email, req.ReturnPath, req.Provider)
+	session, err := h.svc.CreateCheckoutSession(r.Context(), req.AmountCents, req.Currency, req.Email, req.ReturnPath, req.Provider, req.BranchID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

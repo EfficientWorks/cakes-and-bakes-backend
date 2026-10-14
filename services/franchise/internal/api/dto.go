@@ -37,9 +37,13 @@ type branchDTOType struct {
 	// offer the option for a branch that actually takes cash.
 	AcceptsCashOnDelivery bool   `json:"acceptsCashOnDelivery"`
 	CODMaxOrderCents      *int64 `json:"codMaxOrderCents"`
-	// Card providers switched on for this store ("stripe"). The
-	// storefront and POS offer only those also configured on the server.
+	// Website card providers switched on for this store ("stripe"). The
+	// storefront offers only those also configured on the server.
 	CardProviders []string `json:"cardProviders"`
+	// The POS till's own switches: cash, and the card providers it may send
+	// payment links through (GET /pos/payments/options reads these).
+	PosAcceptsCash   bool     `json:"posAcceptsCash"`
+	PosCardProviders []string `json:"posCardProviders"`
 	// Pickup and delivery hours: each day closed or a list of ranges. Always
 	// filled — a store that never set them shows its opening hours.
 	PickupHours         []franchiseapi.DayHours `json:"pickupHours"`
@@ -79,6 +83,8 @@ func branchDTO(b *franchiseapi.Branch) branchDTOType {
 		TaxName: b.TaxName, TaxRatePct: b.TaxRatePct,
 		AcceptsCashOnDelivery: b.AcceptsCashOnDelivery, CODMaxOrderCents: b.CODMaxOrderCents,
 		CardProviders:       nonNilStrings(b.CardProviders),
+		PosAcceptsCash:      b.PosAcceptsCash,
+		PosCardProviders:    nonNilStrings(b.PosCardProviders),
 		PickupHours:         b.HoursFor("pickup"),
 		DeliveryHours:       b.HoursFor("delivery"),
 		SameFulfilmentHours: b.SameFulfilmentHours,

@@ -87,9 +87,16 @@ func (s *Service) CreateBranch(ctx context.Context, claims *auth.StaffClaims, b 
 	if b.CardProviders != nil {
 		providers, err := franchiseapi.NormalizeCardProviders(b.CardProviders)
 		if err != nil {
-			return nil, nil, cardProvidersInvalid(err)
+			return nil, nil, cardProvidersInvalid("cardProviders", err)
 		}
 		b.CardProviders = providers
+	}
+	if b.PosCardProviders != nil {
+		providers, err := franchiseapi.NormalizeCardProviders(b.PosCardProviders)
+		if err != nil {
+			return nil, nil, cardProvidersInvalid("posCardProviders", err)
+		}
+		b.PosCardProviders = providers
 	}
 
 	if b.DeliveryPricing.Region != "" {
@@ -235,9 +242,9 @@ func normalizeStoreHours(pickup, delivery *[]franchiseapi.DayHours) error {
 	return nil
 }
 
-func cardProvidersInvalid(err error) error {
+func cardProvidersInvalid(field string, err error) error {
 	return apperr.Validation(err.Error()).
-		WithFields(apperr.FieldError{Field: "cardProviders", Code: "INVALID", Message: err.Error()})
+		WithFields(apperr.FieldError{Field: field, Code: "INVALID", Message: err.Error()})
 }
 
 func (s *Service) UpdateBranch(ctx context.Context, claims *auth.StaffClaims, id string, patch franchiseapi.BranchPatch) (*franchiseapi.Branch, []string, error) {
@@ -283,9 +290,16 @@ func (s *Service) UpdateBranch(ctx context.Context, claims *auth.StaffClaims, id
 	if patch.CardProviders != nil {
 		providers, err := franchiseapi.NormalizeCardProviders(*patch.CardProviders)
 		if err != nil {
-			return nil, nil, cardProvidersInvalid(err)
+			return nil, nil, cardProvidersInvalid("cardProviders", err)
 		}
 		patch.CardProviders = &providers
+	}
+	if patch.PosCardProviders != nil {
+		providers, err := franchiseapi.NormalizeCardProviders(*patch.PosCardProviders)
+		if err != nil {
+			return nil, nil, cardProvidersInvalid("posCardProviders", err)
+		}
+		patch.PosCardProviders = &providers
 	}
 
 	if patch.DeliveryPricing != nil {

@@ -420,6 +420,14 @@ func (s *Service) DeletePOSOrder(ctx context.Context, claims *auth.StaffClaims, 
 	if err != nil {
 		return err
 	}
+	// KDS: once the kitchen has started an order it cannot be made "never
+	// to have existed" — same rule as cancelling. The bulk delete goes
+	// through here too, so it reports the same reason per order.
+	if ordersapi.KOTInKitchen(existing.KOTStatus) {
+		return apperr.New("ORDER_IN_PREPARATION", apperr.CategoryBusinessRule,
+			"The kitchen is already working on this order ("+existing.KOTStatus+"); it cannot be deleted.").
+			WithMeta(map[string]any{"kotStatus": existing.KOTStatus})
+	}
 	if err := s.store.SoftDeleteOrder(ctx, orderID); err != nil {
 		return notFoundOrInternal(err, "Order not found.")
 	}

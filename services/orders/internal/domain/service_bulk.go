@@ -23,6 +23,9 @@ const maxBulkOrders = 100
 // BulkResult is what happened to one order in a batch.
 type BulkResult struct {
 	OrderID string `json:"orderId"`
+	// What the till shows for the order (its bill number, else its
+	// reference). Filled for failed rows so a message can name them.
+	OrderNo string `json:"orderNo,omitempty"`
 	OK      bool   `json:"ok"`
 	// Set when OK is false: the same error code the single-order endpoint
 	// would have returned, so the screen can explain each failed row.
@@ -99,7 +102,7 @@ func (s *Service) BulkOrderAction(ctx context.Context, claims *auth.StaffClaims,
 			out = append(out, BulkResult{OrderID: id, OK: true})
 			continue
 		}
-		r := BulkResult{OrderID: id, Code: "INTERNAL_ERROR", Message: "An unexpected error occurred."}
+		r := BulkResult{OrderID: id, OrderNo: s.bulkOrderNo(ctx, id), Code: "INTERNAL_ERROR", Message: "An unexpected error occurred."}
 		if ae, ok := apperr.As(err); ok {
 			r.Code, r.Message = ae.Code, ae.Message
 		}
@@ -107,4 +110,84 @@ func (s *Service) BulkOrderAction(ctx context.Context, claims *auth.StaffClaims,
 	}
 
 	return out, nil
+}
+
+// bulkOrderNo is the number the operator knows an order by. Best effort: a
+// row that cannot be read is named by its id instead.
+func (s *Service) bulkOrderNo(ctx context.Context, id string) string {
+	o, err := s.store.GetOrderByID(ctx, id)
+	if err != nil || o == nil {
+		return id
+	}
+	if no := billNoLabel(o); no != "" {
+		return no
+	}
+	if o.Reference != "" {
+		return o.Reference
+	}
+	return id
+}
+
+// bulkReason is the short phrase for why one order was refused, for the
+// summary line. Codes it does not know fall back to the error's own message.
+func bulkReason(r BulkResult) string {
+	switch r.Code {
+	// The kitchen starting an order moves it to in_production, so cancel
+	// refuses it with ORDER_IN_PRODUCTION before the KOT check is reached.
+	// To the operator both mean the same thing.
+	case "ORDER_IN_PREPARATION", "ORDER_IN_PRODUCTION":
+		return "order in preparing"
+	case "ORDER_ALREADY_CANCELLED":
+		return "order already cancelled"
+	case "ORDER_CLOSED":
+		return "order already closed"
+	case apperr.CodePermissionDenied:
+		return "no permission"
+	case apperr.CodeNotFound:
+		return "order not found"
+	}
+	return strings.TrimRight(strings.TrimSpace(r.Message), ".")
+}
+
+// BulkFailureMessage is the one line the till shows when a cancel or delete
+// did not go through for every selected order, e.g.
+//
+//	Order(s) 23, 43 not cancelled due to order in preparing.
+//
+// Orders are grouped by reason, in the order the reasons first appear. It
+// returns "" when nothing failed.
+func BulkFailureMessage(action string, results []BulkResult) string {
+	verb := "updated"
+	switch strings.TrimSpace(action) {
+	case BulkCancel:
+		verb = "cancelled"
+	case BulkDelete:
+		verb = "deleted"
+	}
+
+	var reasons []string
+	byReason := map[string][]string{}
+	for _, r := range results {
+		if r.OK {
+			continue
+		}
+		reason := bulkReason(r)
+		if _, seen := byReason[reason]; !seen {
+			reasons = append(reasons, reason)
+		}
+		no := r.OrderNo
+		if no == "" {
+			no = r.OrderID
+		}
+		byReason[reason] = append(byReason[reason], no)
+	}
+	if len(reasons) == 0 {
+		return ""
+	}
+
+	parts := make([]string, 0, len(reasons))
+	for _, reason := range reasons {
+		parts = append(parts, "Order(s) "+strings.Join(byReason[reason], ", ")+" not "+verb+" due to "+reason)
+	}
+	return strings.Join(parts, "; ") + "."
 }

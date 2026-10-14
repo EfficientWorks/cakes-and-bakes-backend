@@ -231,6 +231,97 @@ func (s *Service) MarkFulfilledAdmin(ctx context.Context, claims *auth.StaffClai
 	return s.MarkFulfilled(ctx, claims.StaffID, orderID, note)
 }
 
+/*
+ * MarkFulfilledPOS is the till's "delivered" — /pos/orders/{id}/mark-fulfilled.
+ *
+ * It closes the order out like MarkFulfilledAdmin, and settles the payment with
+ * it, so an order handed over does not stay "pending" on the books:
+ *
+ *   - the order must be ready or out for delivery;
+ *   - a cash order (cash, or cash on delivery) has its cash collected here, so
+ *     paymentStatus becomes captured;
+ *   - any other order (card, wallet, mixed) must already be paid — captured —
+ *     and is refused otherwise, rather than being closed out unpaid.
+ *
+ * Returns the order's payment status after the call.
+ */
+func (s *Service) MarkFulfilledPOS(ctx context.Context, claims *auth.StaffClaims, orderID, note string) (string, error) {
+	if !tenant.HasPermission(claims, tenant.PermOrdersAmend) {
+		return "", apperr.PermissionDenied("You do not have permission to update orders.")
+	}
+	o, err := s.checkOrderScope(ctx, claims, orderID)
+	if err != nil {
+		return "", err
+	}
+	if o.Status != ordersapi.StatusReady && o.Status != ordersapi.StatusOutForDelivery {
+		return "", apperr.New("ORDER_NOT_READY", apperr.CategoryBusinessRule,
+			"Only an order that is ready or out for delivery can be marked delivered (this one is "+o.Status+").").
+			WithMeta(map[string]any{"status": o.Status})
+	}
+	if err := s.assertKitchenDone(ctx, o); err != nil {
+		return "", err
+	}
+
+	cash := isCashMethod(o.PaymentMethod)
+	if !cash && o.PaymentStatus != ordersapi.PaymentCaptured && o.PaymentStatus != ordersapi.PaymentPartialRefund {
+		return "", apperr.New("PAYMENT_PENDING", apperr.CategoryBusinessRule,
+			"Take the payment before marking this order delivered.").
+			WithMeta(map[string]any{"paymentStatus": o.PaymentStatus})
+	}
+
+	/*
+	 * Cash first, then fulfilled. Two writes, and this order is what makes a
+	 * failure between them safe to retry from the till:
+	 *
+	 *   - cash fails: nothing changed; pressing delivered again tries again;
+	 *   - fulfilled fails after the cash: the order is still ready but paid,
+	 *     and pressing delivered again skips the cash (no longer pending) and
+	 *     closes it.
+	 *
+	 * The other way round, a failed cash step left the order fulfilled and
+	 * unpaid, which the till could not reach again ("not ready").
+	 */
+	paymentStatus := o.PaymentStatus
+	if cash && o.PaymentStatus == ordersapi.PaymentPending {
+		collected, err := s.store.SettleCashOnFulfilment(ctx, orderID, claims.StaffID)
+		if err != nil {
+			slog.Error("cash could not be recorded on delivery", "order", o.Reference, "error", err)
+			return "", apperr.Internal(err)
+		}
+		if collected {
+			paymentStatus = ordersapi.PaymentCaptured
+			// Money changing hands is attributable to a named person (NFR-11).
+			// Best-effort: the cash is already recorded.
+			if s.audit != nil {
+				staffID := claims.StaffID
+				_ = s.audit.Write(ctx, audit.Entry{
+					ActorID: &staffID, ActorType: "staff", ActorRole: primaryRole(claims),
+					Action: "order.cash_collected", ResourceType: "order", ResourceID: &orderID,
+					BranchID:   &o.BranchID,
+					AfterValue: map[string]any{"amountCents": o.TotalCents, "method": o.PaymentMethod, "on": "fulfilment"},
+				})
+			}
+		}
+	}
+
+	// MarkFulfilled publishes the order, already carrying the paid status.
+	if err := s.MarkFulfilled(ctx, claims.StaffID, orderID, note); err != nil {
+		if paymentStatus != o.PaymentStatus {
+			// Paid but not closed: let the screens show the payment, and the
+			// till retry the delivery.
+			s.publishOrderByID(ctx, realtime.EventOrderUpdated, orderID)
+		}
+		return "", err
+	}
+	return paymentStatus, nil
+}
+
+// isCashMethod: an order paid in cash, at the counter or on delivery.
+func isCashMethod(method string) bool {
+	m := strings.ToLower(strings.TrimSpace(method))
+	return m == "cash" || m == PaymentMethodCOD
+}
+
 // SetStatusAdmin moves an order to an arbitrary status.
 //
 // Gated on orders.amend for the same reason as MarkFulfilledAdmin: this writes,

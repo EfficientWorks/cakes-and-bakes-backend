@@ -31,6 +31,7 @@ import (
 	"time"
 
 	_ "bakehouse/api" // generated Swagger spec, served at /docs
+	"bakehouse/pkg/apperr"
 	"bakehouse/pkg/audit"
 	"bakehouse/pkg/auth"
 	"bakehouse/pkg/config"
@@ -315,6 +316,19 @@ func main() {
 			}
 		}
 		return ""
+	})
+	// A hosted checkout page opens only for a store that takes card on its
+	// website (admin › store › Website payments).
+	paymentsSvc.UseStoreCardCheck(func(ctx context.Context, branchID, provider string) error {
+		b, err := franchiseSvc.Branches().GetBranch(ctx, branchID)
+		if err != nil {
+			return apperr.NotFound("Store not found.")
+		}
+		if !b.TakesCardThrough(provider) {
+			return apperr.New("CARD_NOT_AVAILABLE", apperr.CategoryBusinessRule,
+				"This outlet is not taking card payments online right now.")
+		}
+		return nil
 	})
 	if cfg.PlatformAPIKey == "" {
 		log.Warn("PLATFORM_API_KEY not set — /v1/platform (business registration) answers 503")

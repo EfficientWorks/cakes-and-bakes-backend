@@ -11746,7 +11746,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cancel, remove, or move a selection of orders to a status — for the tick boxes on the orders list. Each order is processed on its own and reported on separately, so one bad row does not reject the rest; check ` + "`" + `results` + "`" + ` per order rather than the overall status. To mark a selection delivered, send action=status with status=fulfilled. At most 100 orders per call.",
+                "description": "Cancel, remove, or move a selection of orders to a status — for the tick boxes on the orders list. Each order is processed on its own, so one bad row does not stop the rest. For cancel and delete the response is a success only when every selected order went through; if any did not, it is an error (422 BULK_ACTION_INCOMPLETE) whose message names those orders and why, e.g. \"Order(s) 23, 43 not cancelled due to order in preparing.\", with ` + "`" + `succeeded` + "`" + `, ` + "`" + `failed` + "`" + ` and per-order ` + "`" + `results` + "`" + ` under error.meta. For action=status the response always carries ` + "`" + `results` + "`" + ` per order. To mark a selection delivered, send action=status with status=fulfilled. At most 100 orders per call.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11783,6 +11783,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "PERMISSION_DENIED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "422": {
+                        "description": "BULK_ACTION_INCOMPLETE — cancel/delete did not go through for every order",
                         "schema": {
                             "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
                         }
@@ -12058,7 +12064,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Closes the order out and emails the customer. The one-tap version of setting status to fulfilled — which is what a counter does when it hands a website order over.",
+                "description": "Closes the order out and emails the customer. The one-tap version of setting status to fulfilled — which is what a counter does when it hands a website order over. The order must be ready or out for delivery. A cash order (cash, or cash on delivery) has its cash collected with it, so paymentStatus comes back captured; a card order must already be captured (PAYMENT_PENDING otherwise).",
                 "consumes": [
                     "application/json"
                 ],
@@ -14315,6 +14321,24 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "VALIDATION_FAILED",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/bakehouse_pkg_httpx.ErrorBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "422": {
+                        "description": "CARD_NOT_AVAILABLE",
                         "schema": {
                             "allOf": [
                                 {
@@ -17936,7 +17960,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "cardProviders": {
-                    "description": "Replaces the store's card providers (\"stripe\"); [] = none.",
+                    "description": "Replaces the store's website card providers (\"stripe\"); [] = none.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -18010,6 +18034,16 @@ const docTemplate = `{
                         "$ref": "#/definitions/bakehouse_services_franchise_franchiseapi.DayHours"
                     }
                 },
+                "posAcceptsCash": {
+                    "description": "POS till: cash on/off, and its payment-link card providers ([] = none).",
+                    "type": "boolean"
+                },
+                "posCardProviders": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "postcode": {
                     "type": "string"
                 },
@@ -18051,7 +18085,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "cardProviders": {
-                    "description": "Card providers (\"stripe\"); omitted means Stripe.",
+                    "description": "Website card providers (\"stripe\"); omitted means Stripe.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -18131,6 +18165,16 @@ const docTemplate = `{
                         "$ref": "#/definitions/bakehouse_services_franchise_franchiseapi.DayHours"
                     }
                 },
+                "posAcceptsCash": {
+                    "description": "POS till: cash (omitted: same as acceptsCashOnDelivery) and payment-link\ncard providers (omitted: Stripe).",
+                    "type": "boolean"
+                },
+                "posCardProviders": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "postcode": {
                     "type": "string"
                 },
@@ -18169,7 +18213,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "cardProviders": {
-                    "description": "Card providers switched on for this store (\"stripe\"). The\nstorefront and POS offer only those also configured on the server.",
+                    "description": "Website card providers switched on for this store (\"stripe\"). The\nstorefront offers only those also configured on the server.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -18262,6 +18306,16 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/bakehouse_services_franchise_franchiseapi.DayHours"
+                    }
+                },
+                "posAcceptsCash": {
+                    "description": "The POS till's own switches: cash, and the card providers it may send\npayment links through (GET /pos/payments/options reads these).",
+                    "type": "boolean"
+                },
+                "posCardProviders": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 },
                 "postcode": {
@@ -22438,6 +22492,10 @@ const docTemplate = `{
                 "amountCents": {
                     "type": "integer",
                     "example": 4208
+                },
+                "branchId": {
+                    "description": "BranchID: the store the order is for. When given, a store that does not\ntake card on its website is refused (422 CARD_NOT_AVAILABLE) before any\npayment page opens.",
+                    "type": "string"
                 },
                 "currency": {
                     "type": "string",
