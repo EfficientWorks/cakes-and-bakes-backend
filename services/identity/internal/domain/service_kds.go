@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"bakehouse/pkg/apperr"
@@ -34,6 +35,9 @@ type LocationResolver interface {
 	CentralKitchenActive(ctx context.Context, id string) (bool, error)
 	CentralKitchenBranchIDs(ctx context.Context, centralKitchenID string) ([]string, error)
 	ListBranchRefs(ctx context.Context, ids []string) ([]franchiseapi.BranchRef, error)
+	// MarkKDSInUse switches the KDS on for the stores a KDS signed in to, so
+	// their paid orders wait for the kitchen instead of closing at the till.
+	MarkKDSInUse(ctx context.Context, branchIDs []string) error
 }
 
 // UseLocationResolver wires the Location ID lookup (after franchise is built).
@@ -160,6 +164,17 @@ func (s *Service) KDSLogin(ctx context.Context, businessID, passcode, ip string)
 	pair, err := s.issueStaffTokenPairAt(ctx, staff, assignments, auth.StaffLocation{BranchID: loc.BranchID, KitchenID: loc.CentralKitchenID})
 	if err != nil {
 		return nil, nil, nil, nil, err
+	}
+
+	// This location runs a Kitchen Display now: its paid orders must stay on
+	// the board until the kitchen hands them over. Best effort — a failure
+	// here must not stop the kitchen signing in.
+	branchIDs := make([]string, 0, len(loc.Branches))
+	for _, b := range loc.Branches {
+		branchIDs = append(branchIDs, b.ID)
+	}
+	if err := s.locations.MarkKDSInUse(ctx, branchIDs); err != nil {
+		slog.Warn("kds login: could not switch the KDS on for its stores", "location", loc.BusinessID, "error", err)
 	}
 	return pair, staff, assignments, loc, nil
 }

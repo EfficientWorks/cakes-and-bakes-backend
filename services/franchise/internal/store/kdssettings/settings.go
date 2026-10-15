@@ -85,3 +85,27 @@ func (s *Repo) UpdateKDSSettings(ctx context.Context, id string, p franchiseapi.
 	}
 	return s.GetKDSSettings(ctx, id)
 }
+
+// MarkKDSInUse turns the KDS on for stores a Kitchen Display has signed in
+// to — the store itself, or every store a central kitchen produces for.
+//
+// kds_enabled is what makes a paid order wait for the kitchen instead of
+// closing at the till, and nothing else ever set it: a store running a KDS
+// had every order paid straight away jump to fulfilled on the board. A KDS
+// signing in is the store using one, so that is when it is switched on. It is
+// never switched off here.
+func (s *Repo) MarkKDSInUse(ctx context.Context, branchIDs []string) error {
+	if len(branchIDs) == 0 {
+		return nil
+	}
+	if _, err := s.pool.Exec(ctx, `
+		INSERT INTO kds_settings (scope_type, branch_id)
+		SELECT 'branch', id FROM branches WHERE id::text = ANY($1)
+		ON CONFLICT DO NOTHING`, branchIDs); err != nil {
+		return err
+	}
+	_, err := s.pool.Exec(ctx, `
+		UPDATE kds_settings SET kds_enabled = TRUE, updated_at = NOW()
+		 WHERE branch_id::text = ANY($1) AND NOT kds_enabled`, branchIDs)
+	return err
+}

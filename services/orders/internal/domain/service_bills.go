@@ -124,7 +124,7 @@ func splitByAmount(total int64, currency string, req SplitRequest) ([]ordersapi.
 		return nil, apperr.Validation("A split is between at least two people.").
 			WithFields(apperr.FieldError{Field: "ways", Code: "MIN", Message: "At least 2."})
 	}
-	if ways > 20 {
+	if ways > 100 {
 		return nil, apperr.Validation("That is more ways than a bill can be split.")
 	}
 
