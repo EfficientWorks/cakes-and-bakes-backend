@@ -1954,6 +1954,21 @@ definitions:
         example: in_progress
         type: string
     type: object
+  services_enquiries_internal_api.wholesaleRequest:
+    properties:
+      email:
+        type: string
+      fullName:
+        type: string
+      mobileNumber:
+        type: string
+      sortCode:
+        example: 12-34-56
+        type: string
+      tradeNumber:
+        example: "12345678"
+        type: string
+    type: object
   services_franchise_internal_api.branchPatchRequest:
     properties:
       acceptsCashOnDelivery:
@@ -7980,7 +7995,7 @@ paths:
       description: Brand-scoped staff see every enquiry; branch-scoped staff see only
         their own branch's. Scope comes from the token, not the query string.
       parameters:
-      - description: custom_order, franchise or contact
+      - description: custom_order, franchise, contact or wholesale
         in: query
         name: type
         type: string
@@ -10611,6 +10626,43 @@ paths:
           schema:
             $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
       summary: Submit a franchise enquiry
+      tags:
+      - enquiries
+  /enquiries/wholesale:
+    post:
+      consumes:
+      - application/json
+      description: The "Wholesale Register" form. Recorded as a brand-level enquiry
+        (never routed to a branch) with the trade number and sort code in details;
+        head office reviews it and replies. No account is created.
+      parameters:
+      - description: Application
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services_enquiries_internal_api.wholesaleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/bakehouse_services_enquiries_enquiriesapi.Enquiry'
+              type: object
+        "400":
+          description: VALIDATION_FAILED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "429":
+          description: RATE_LIMITED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      summary: Submit a wholesale application
       tags:
       - enquiries
   /kds/auth/business-id:

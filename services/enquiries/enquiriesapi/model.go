@@ -5,7 +5,7 @@ package enquiriesapi
 
 import "time"
 
-// Enquiry types. The three storefront forms share one lifecycle and one admin
+// Enquiry types. The storefront forms share one lifecycle and one admin
 // queue, so they share one record and differ only in Details (SF-34).
 const (
 	// TypeCustomOrder is the "Need a Custom Order?" form: an event, a guest
@@ -16,6 +16,11 @@ const (
 	TypeFranchise = "franchise"
 	// TypeContact is the general contact form.
 	TypeContact = "contact"
+	// TypeWholesale is the "Wholesale Register" trade application. It is
+	// taken as an enquiry, not an account: head office reviews it and
+	// replies, so like a franchise enquiry it is brand-level. The trade
+	// number and sort code ride in Details.
+	TypeWholesale = "wholesale"
 )
 
 // Enquiry lifecycle.

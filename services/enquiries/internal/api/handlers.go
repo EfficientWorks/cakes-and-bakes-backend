@@ -3,7 +3,9 @@ package api
 import (
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -194,7 +196,68 @@ func (h *Handler) SubmitContact(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// submit is the shared tail of the three form handlers.
+// --- Wholesale ----------------------------------------------------------------
+
+// wholesaleRequest mirrors the "Wholesale Register" application. It is taken
+// as an enquiry rather than creating an account — head office reviews it and
+// replies — so there is no password and no branch.
+type wholesaleRequest struct {
+	FullName     string `json:"fullName"`
+	Email        string `json:"email"`
+	MobileNumber string `json:"mobileNumber"`
+	TradeNumber  string `json:"tradeNumber" example:"12345678"`
+	SortCode     string `json:"sortCode" example:"12-34-56"`
+}
+
+// sortCodePattern is a UK sort code in the shape the form formats it to.
+var sortCodePattern = regexp.MustCompile(`^\d{2}-\d{2}-\d{2}$`)
+
+// SubmitWholesale records a wholesale account application for head office.
+//
+//	@Summary		Submit a wholesale application
+//	@Description	The "Wholesale Register" form. Recorded as a brand-level enquiry (never routed to a branch) with the trade number and sort code in details; head office reviews it and replies. No account is created.
+//	@Tags			enquiries
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		wholesaleRequest	true	"Application"
+//	@Success		201		{object}	httpx.Envelope{data=enquiriesapi.Enquiry}
+//	@Failure		400		{object}	httpx.Envelope	"VALIDATION_FAILED"
+//	@Failure		429		{object}	httpx.Envelope	"RATE_LIMITED"
+//	@Router			/enquiries/wholesale [post]
+func (h *Handler) SubmitWholesale(w http.ResponseWriter, r *http.Request) {
+	var req wholesaleRequest
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	tradeNumber := strings.TrimSpace(req.TradeNumber)
+	sortCode := strings.TrimSpace(req.SortCode)
+
+	var fields []apperr.FieldError
+	if tradeNumber == "" {
+		fields = append(fields, apperr.FieldError{Field: "tradeNumber", Code: "REQUIRED", Message: "Please enter your trade number."})
+	}
+	if !sortCodePattern.MatchString(sortCode) {
+		fields = append(fields, apperr.FieldError{Field: "sortCode", Code: "INVALID", Message: "Enter the sort code as 00-00-00."})
+	}
+	if len(fields) > 0 {
+		httpx.WriteError(w, r, apperr.Validation("Check your business details.").WithFields(fields...))
+		return
+	}
+
+	h.submit(w, r, domain.SubmitRequest{
+		Type:  enquiriesapi.TypeWholesale,
+		Name:  req.FullName,
+		Email: req.Email,
+		Phone: req.MobileNumber,
+		Details: map[string]any{
+			"tradeNumber": tradeNumber,
+			"sortCode":    sortCode,
+		},
+	})
+}
+
+// submit is the shared tail of the form handlers.
 func (h *Handler) submit(w http.ResponseWriter, r *http.Request, req domain.SubmitRequest) {
 	req.SourceIP = clientIP(r)
 	created, err := h.svc.Submit(r.Context(), req)
@@ -272,7 +335,7 @@ func (h *Handler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 //	@Tags			admin-enquiries
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Param			type		query		string	false	"custom_order, franchise or contact"
+//	@Param			type		query		string	false	"custom_order, franchise, contact or wholesale"
 //	@Param			status		query		string	false	"new, in_progress or closed"
 //	@Param			branchId	query		string	false	"Restrict to one branch you have access to"
 //	@Param			search		query		string	false	"Partial match on name or email"

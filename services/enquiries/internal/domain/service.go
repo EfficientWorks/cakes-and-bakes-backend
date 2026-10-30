@@ -73,7 +73,7 @@ type SubmitRequest struct {
 // losing the enquiry would be worse than losing the email.
 func (s *Service) Submit(ctx context.Context, req SubmitRequest) (*enquiriesapi.Enquiry, error) {
 	switch req.Type {
-	case enquiriesapi.TypeCustomOrder, enquiriesapi.TypeFranchise, enquiriesapi.TypeContact:
+	case enquiriesapi.TypeCustomOrder, enquiriesapi.TypeFranchise, enquiriesapi.TypeContact, enquiriesapi.TypeWholesale:
 	default:
 		return nil, apperr.Validation("Unknown enquiry type.")
 	}

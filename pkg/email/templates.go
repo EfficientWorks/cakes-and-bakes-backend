@@ -333,6 +333,8 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 			what = "custom order request"
 		case "franchise":
 			what = "franchise enquiry"
+		case "wholesale":
+			what = "wholesale account application"
 		}
 
 		subject := "We've got your " + what
@@ -407,6 +409,16 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 			rows.WriteString(row("Phone", template.HTMLEscapeString(phone)))
 		}
 		rows.WriteString(row("Type", template.HTMLEscapeString(enquiryType)))
+		// A wholesale application is only useful to the business with the
+		// trade details it is checked against.
+		tradeNumber := extractString(data, "tradeNumber")
+		sortCode := extractString(data, "sortCode")
+		if tradeNumber != "" {
+			rows.WriteString(row("Trade number", template.HTMLEscapeString(tradeNumber)))
+		}
+		if sortCode != "" {
+			rows.WriteString(row("Sort code", template.HTMLEscapeString(sortCode)))
+		}
 		rows.WriteString(row("ID", `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;color:`+brandMuted+`;">`+template.HTMLEscapeString(enquiryID)+`</span>`))
 		messageSection := ""
 		if message != "" {
@@ -425,6 +437,12 @@ func renderTemplate(templateAlias string, data map[string]interface{}) (*Rendere
 		branchText := ""
 		if branchName != "" {
 			branchText = "\nBranch: " + branchName
+		}
+		if tradeNumber != "" {
+			phoneText += "\nTrade number: " + tradeNumber
+		}
+		if sortCode != "" {
+			phoneText += "\nSort code: " + sortCode
 		}
 		msgText := ""
 		if message != "" {

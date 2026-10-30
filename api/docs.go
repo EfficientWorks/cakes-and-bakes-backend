@@ -4246,7 +4246,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "custom_order, franchise or contact",
+                        "description": "custom_order, franchise, contact or wholesale",
                         "name": "type",
                         "in": "query"
                     },
@@ -8341,6 +8341,64 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/services_enquiries_internal_api.franchiseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/bakehouse_services_enquiries_enquiriesapi.Enquiry"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_FAILED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "429": {
+                        "description": "RATE_LIMITED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/enquiries/wholesale": {
+            "post": {
+                "description": "The \"Wholesale Register\" form. Recorded as a brand-level enquiry (never routed to a branch) with the trade number and sort code in details; head office reviews it and replies. No account is created.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "enquiries"
+                ],
+                "summary": "Submit a wholesale application",
+                "parameters": [
+                    {
+                        "description": "Application",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services_enquiries_internal_api.wholesaleRequest"
                         }
                     }
                 ],
@@ -17947,6 +18005,28 @@ const docTemplate = `{
                 "status": {
                     "type": "string",
                     "example": "in_progress"
+                }
+            }
+        },
+        "services_enquiries_internal_api.wholesaleRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "fullName": {
+                    "type": "string"
+                },
+                "mobileNumber": {
+                    "type": "string"
+                },
+                "sortCode": {
+                    "type": "string",
+                    "example": "12-34-56"
+                },
+                "tradeNumber": {
+                    "type": "string",
+                    "example": "12345678"
                 }
             }
         },

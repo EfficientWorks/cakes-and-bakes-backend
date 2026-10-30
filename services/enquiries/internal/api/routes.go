@@ -15,6 +15,7 @@ func MountPublic(v1 chi.Router, h *Handler) {
 		r.Post("/custom-order", h.SubmitCustomOrder)
 		r.Post("/franchise", h.SubmitFranchiseEnquiry)
 		r.Post("/contact", h.SubmitContact)
+		r.Post("/wholesale", h.SubmitWholesale)
 	})
 
 	v1.Route("/newsletter", func(r chi.Router) {
