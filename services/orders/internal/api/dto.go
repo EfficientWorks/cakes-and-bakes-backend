@@ -51,6 +51,13 @@ type priceSummaryDTOType struct {
 	// set yet); deliveryMessage then says why. Always true for pickup.
 	DeliveryAvailable bool   `json:"deliveryAvailable"`
 	DeliveryMessage   string `json:"deliveryMessage,omitempty"`
+	// The store's minimum item subtotal for delivery (0 = no minimum) and
+	// how much more the basket needs (0 once reached). Below the minimum a
+	// delivery cart has deliveryAvailable false and deliveryMessage
+	// "Orders under £50 are collection only. Add £18.01 more to unlock local
+	// delivery." Reported for pickup carts too, so the basket can say it.
+	DeliveryMinimumCents   int64 `json:"deliveryMinimumCents" example:"5000"`
+	DeliveryShortfallCents int64 `json:"deliveryShortfallCents" example:"1801"`
 }
 
 // defaultCurrency is shown for amounts with no currency recorded: the
@@ -90,6 +97,7 @@ func priceSummaryDTO(p *ordersapi.PriceSummary) priceSummaryDTOType {
 		DeliveryFeeCents: p.DeliveryFeeCents, TaxCents: p.TaxCents, TaxPct: taxPct,
 		TaxName: taxLabel(p.TaxName), ServiceChargeCents: p.ServiceChargeCents, TipCents: p.TipCents, TotalCents: p.TotalCents, Currency: currencyOr(p.Currency),
 		DeliveryAvailable: p.DeliveryAvailable, DeliveryMessage: p.DeliveryMessage,
+		DeliveryMinimumCents: p.DeliveryMinimumCents, DeliveryShortfallCents: p.DeliveryShortfallCents,
 	}
 }
 

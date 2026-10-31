@@ -77,6 +77,7 @@ func (s *Service) Reorder(ctx context.Context, customerID, orderID string) (*ord
 			PresentationID: idOf(item.SelectedPresentation), WrapColourID: idOf(item.SelectedWrapColour),
 			Quantity: item.Quantity, IsGift: o.IsGift,
 			RecipientFirst: &o.RecipientFirstName, RecipientLast: &o.RecipientLastName, GiftMessage: o.GiftMessage,
+			CakeMessage: item.CakeMessage,
 		})
 		if err != nil {
 			warnings = append(warnings, item.ProductName+" is currently unavailable and was not added.")

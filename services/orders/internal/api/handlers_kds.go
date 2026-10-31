@@ -171,6 +171,11 @@ type kdsOrderDTO struct {
 	DeliveryAddress      *addressDTOType      `json:"deliveryAddress"`
 	DeliveryInstructions *string              `json:"deliveryInstructions"`
 	GuestCustomerName    *string              `json:"guestCustomerName"`
+	// Custom Orders form: price to be confirmed (total 0), unpaid. source
+	// is "custom_order" then, else null.
+	IsCustomOrder bool    `json:"isCustomOrder"`
+	Source        *string `json:"source"`
+	EnquiryID     *string `json:"enquiryId"`
 
 	// Recalled by the kitchen after it was handed over (back on the ready
 	// rail); false again once it is handed over.
@@ -213,6 +218,7 @@ func kdsOrder(v *domain.KDSOrderView) kdsOrderDTO {
 		Purchaser: purchaserDTOType{FirstName: o.PurchaserFirstName, LastName: o.PurchaserLastName, Email: o.PurchaserEmail, Phone: o.PurchaserPhone},
 		IsGift:    o.IsGift, GiftMessage: o.GiftMessage, GiftReason: o.GiftReason, Notes: o.Notes,
 		DeliveryInstructions: o.DeliveryInstructions, GuestCustomerName: o.GuestCustomerName,
+		IsCustomOrder: o.IsCustomOrder(), Source: o.Source, EnquiryID: o.EnquiryID,
 		IsAmended: o.IsAmended, AmendedAt: fmtTimePtr(o.AmendedAt),
 		AmendedAcknowledged: o.AmendedAcknowledged, AmendedAcknowledgedAt: fmtTimePtr(o.AmendedAcknowledgedAt),
 		IsRecalled: v.RecalledAt != nil, RecalledAt: fmtTimePtr(v.RecalledAt),

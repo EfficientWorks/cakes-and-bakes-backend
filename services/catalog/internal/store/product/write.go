@@ -25,8 +25,9 @@ func (s *Repo) CreateProduct(ctx context.Context, p catalogapi.Product) (*catalo
 		production_station, allergen_flags, dietary_flags, occasion_tags, freshness_note,
 		ingredients_note, returns_note, disclaimer, is_best_seller, sort_order, price_floor_cents, price_ceiling_cents,
 		is_active, available_from, available_until, show_on_pos, show_on_website, pricing_mode,
-		min_prep_time, min_prep_time_unit, max_prep_time, max_prep_time_unit, video_url, business_id)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
+		min_prep_time, min_prep_time_unit, max_prep_time, max_prep_time_unit, video_url, business_id,
+		code, colours, sponges, cake_message_mode, cake_message_max_length, cake_message_presets)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
 		RETURNING id`
 	var id string
 	err = tx.QueryRow(ctx, q, p.CategoryID, p.Name, p.Slug, p.Description, p.BasePriceCents, orDefault(p.LeadTime, 2), strx.OrDefault(p.LeadTimeUnit, "hours"),
@@ -34,7 +35,8 @@ func (s *Repo) CreateProduct(ctx context.Context, p catalogapi.Product) (*catalo
 		p.FreshnessNote, p.IngredientsNote, p.ReturnsNote, p.Disclaimer, p.IsBestSeller, p.SortOrder, p.PriceFloorCents, p.PriceCeilingCents,
 		p.IsActive, p.AvailableFrom, p.AvailableUntil, p.ShowOnPos, p.ShowOnWebsite, p.EffectivePricingMode(),
 		p.MinPrepTime, prepUnit(p.MinPrepTimeUnit), p.MaxPrepTime, prepUnit(p.MaxPrepTimeUnit), p.VideoURL,
-		tenant.BusinessParam(ctx)).
+		tenant.BusinessParam(ctx), p.Code, strx.OrEmptySlice(p.Colours), strx.OrEmptySlice(p.Sponges),
+		cakeMode(p.CakeMessageMode), cakeMaxLen(p.CakeMessageMaxLength), presetsOrDefault(p.CakeMessagePresets)).
 		Scan(&id)
 	if err != nil {
 		// Classified rather than wrapped raw: a reused slug and a category id
@@ -95,14 +97,17 @@ func (s *Repo) UpdateProduct(ctx context.Context, id string, p catalogapi.Produc
 			is_best_seller=$17, sort_order=$18, price_floor_cents=$19, price_ceiling_cents=$20,
 			is_active=$21, available_from=$22, available_until=$23,
 			show_on_pos=$24, show_on_website=$25, pricing_mode=$26,
-			min_prep_time=$27, min_prep_time_unit=$28, max_prep_time=$29, max_prep_time_unit=$30, video_url=$31, updated_at=NOW()
+			min_prep_time=$27, min_prep_time_unit=$28, max_prep_time=$29, max_prep_time_unit=$30, video_url=$31,
+			code=$33, colours=$34, sponges=$35, cake_message_mode=$36, cake_message_max_length=$37, cake_message_presets=$38,
+			updated_at=NOW()
 		WHERE id = $1 AND deleted_at IS NULL AND business_id IS NOT DISTINCT FROM $32`
 	tag, err := tx.Exec(ctx, q, id, p.CategoryID, p.Name, p.Slug, p.Description, p.BasePriceCents, orDefault(p.LeadTime, 2), strx.OrDefault(p.LeadTimeUnit, "hours"),
 		p.ProductionStation, strx.OrEmptySlice(p.AllergenFlags), strx.OrEmptySlice(p.DietaryFlags), strx.OrEmptySlice(p.OccasionTags),
 		p.FreshnessNote, p.IngredientsNote, p.ReturnsNote, p.Disclaimer, p.IsBestSeller, p.SortOrder, p.PriceFloorCents, p.PriceCeilingCents,
 		p.IsActive, p.AvailableFrom, p.AvailableUntil, p.ShowOnPos, p.ShowOnWebsite, p.EffectivePricingMode(),
 		p.MinPrepTime, prepUnit(p.MinPrepTimeUnit), p.MaxPrepTime, prepUnit(p.MaxPrepTimeUnit), p.VideoURL,
-		tenant.BusinessParam(ctx))
+		tenant.BusinessParam(ctx), p.Code, strx.OrEmptySlice(p.Colours), strx.OrEmptySlice(p.Sponges),
+		cakeMode(p.CakeMessageMode), cakeMaxLen(p.CakeMessageMaxLength), presetsOrDefault(p.CakeMessagePresets))
 	if err != nil {
 		if known := shared.Classify(err); known != err {
 			return nil, known

@@ -8257,7 +8257,7 @@
         },
         "/enquiries/custom-order": {
             "post": {
-                "description": "The \"Need a Custom Order?\" form. Requires a store location — the enquiry is routed to that branch and inherits its franchise. Submitting this only starts a conversation; bookings are confirmed by phone.",
+                "description": "The \"Need a Custom Order?\" form. Requires a store location — the enquiry is routed to that branch. When a date is given (date, else a YYYY-MM-DD eventDate) it also creates an order for that store and day: source custom_order, total 0 (price to be confirmed), unpaid, carrying cakeMessage (max 40) and up to 3 photoUrls from /storefront/uploads/cake-photo. The response is the enquiry with orderId and orderReference.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14593,14 +14593,26 @@
                     },
                     {
                         "type": "string",
-                        "description": "Partial match on product name and description",
+                        "description": "Partial match on product name, description and product code",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Category tab",
+                        "description": "Category ids; repeated or comma-separated. Matches ANY (one id = the old single tab)",
                         "name": "categoryId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Colours (Pink, Blue, ...); repeated or comma-separated. Matches ANY",
+                        "name": "colour",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sponges (Chocolate, Vanilla, ...); repeated or comma-separated. Matches ANY; ANDed with colour",
+                        "name": "sponge",
                         "in": "query"
                     },
                     {
@@ -15076,6 +15088,67 @@
                     },
                     "400": {
                         "description": "VALIDATION_FAILED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/storefront/uploads/cake-photo": {
+            "post": {
+                "description": "Public. Send the image either as multipart/form-data (field \"file\") or as the raw request body with an image Content-Type. JPEG, PNG or WebP only (HEIC and others are refused), at most 10 MB; large images are scaled to 1600 px on the longest side. Rate limited per IP (20 an hour). Returns the id and url to attach to a custom order (photoUrls).",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "storefront"
+                ],
+                "summary": "Upload a customer cake photo",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "The image (multipart)",
+                        "name": "file",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_catalog_internal_api.customerPhotoDTO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "UNSUPPORTED_IMAGE_TYPE or IMAGE_TOO_LARGE or VALIDATION_FAILED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "429": {
+                        "description": "RATE_LIMITED",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "503": {
+                        "description": "IMAGE_STORAGE_NOT_CONFIGURED",
                         "schema": {
                             "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
                         }
@@ -15560,6 +15633,13 @@
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "description": "OrderID and OrderReference name the order a custom-order enquiry\ncreated (price to be confirmed, unpaid). Also kept in details.",
+                    "type": "string"
+                },
+                "orderReference": {
                     "type": "string"
                 },
                 "phone": {
@@ -17123,6 +17203,21 @@
                 }
             }
         },
+        "services_catalog_internal_api.customerPhotoDTO": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "The upload id; send it (or url) back as a photo reference.",
+                    "type": "string",
+                    "example": "9f2c4e0a6b1d4c3e8f7a6b5c4d3e2f1a"
+                },
+                "url": {
+                    "description": "Where the photo is served from.",
+                    "type": "string",
+                    "example": "https://api.example.com/v1/media/9f2c4e0a6b1d4c3e8f7a6b5c4d3e2f1a"
+                }
+            }
+        },
         "services_catalog_internal_api.dateOverrideRequest": {
             "type": "object",
             "properties": {
@@ -17137,9 +17232,61 @@
                 }
             }
         },
+        "services_catalog_internal_api.facetCategoryDTO": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "description": "Live website products in the category, before any other filter.",
+                    "type": "integer",
+                    "example": 12
+                },
+                "id": {
+                    "type": "string"
+                },
+                "imageUrl": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                }
+            }
+        },
+        "services_catalog_internal_api.facetOptionDTO": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "value": {
+                    "type": "string",
+                    "example": "Pink"
+                }
+            }
+        },
         "services_catalog_internal_api.facetsDTOType": {
             "type": "object",
             "properties": {
+                "categories": {
+                    "description": "Every active category in the admin's order, with its count of live\nwebsite products — categories with none are included (count 0).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services_catalog_internal_api.facetCategoryDTO"
+                    }
+                },
+                "colours": {
+                    "description": "Every allowed colour and sponge, in a fixed order, with product counts\n(0 included). Filter with ?colour= and ?sponge=.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services_catalog_internal_api.facetOptionDTO"
+                    }
+                },
                 "dietary": {
                     "type": "array",
                     "items": {
@@ -17164,6 +17311,12 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/services_catalog_internal_api.sortOptionDTO"
+                    }
+                },
+                "sponges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services_catalog_internal_api.facetOptionDTO"
                     }
                 },
                 "tags": {
@@ -17436,9 +17589,36 @@
                 "basePrice": {
                     "type": "integer"
                 },
+                "cakeMessageMaxLength": {
+                    "type": "integer",
+                    "example": 40
+                },
+                "cakeMessageMode": {
+                    "description": "Message on the cake: off | optional | required, the limit in\ncharacters, and the chips to offer.",
+                    "type": "string",
+                    "example": "optional"
+                },
+                "cakeMessagePresets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "categorySlug": {
                     "description": "Variants     []variantDTOType    `json:\"variants\"`",
                     "type": "string"
+                },
+                "code": {
+                    "description": "The shop's product code (\"WPC-040\"); null when none.",
+                    "type": "string",
+                    "example": "WPC-040"
+                },
+                "colours": {
+                    "description": "Filter values, from the allowed lists in /storefront/product-filters.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "description": {
                     "type": "string"
@@ -17522,6 +17702,12 @@
                 "slug": {
                     "type": "string"
                 },
+                "sponges": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "storeIds": {
                     "type": "array",
                     "items": {
@@ -17598,8 +17784,37 @@
                 "basePriceCents": {
                     "type": "integer"
                 },
+                "cakeMessageMaxLength": {
+                    "description": "1–200 characters; default 40.",
+                    "type": "integer",
+                    "example": 40
+                },
+                "cakeMessageMode": {
+                    "description": "off (default) | optional | required.",
+                    "type": "string",
+                    "example": "optional"
+                },
+                "cakeMessagePresets": {
+                    "description": "Omit for the default chips; [] for none.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "categoryId": {
                     "type": "string"
+                },
+                "code": {
+                    "description": "Product code, trimmed and upper-cased; unique per business; max 32.",
+                    "type": "string",
+                    "example": "WPC-040"
+                },
+                "colours": {
+                    "description": "Colours and sponges from the allowed lists (case-insensitive).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "description": {
                     "type": "string"
@@ -17699,6 +17914,12 @@
                 },
                 "sortOrder": {
                     "type": "integer"
+                },
+                "sponges": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "storeIds": {
                     "type": "array",
@@ -17925,6 +18146,34 @@
                 "branchId": {
                     "type": "string"
                 },
+                "cakeMessage": {
+                    "description": "What the cake should say, at most 40 characters.",
+                    "type": "string",
+                    "example": "Happy 30th Priya"
+                },
+                "cakeSize": {
+                    "type": "string",
+                    "example": "8 inch, two tier"
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2026-11-14"
+                },
+                "deliveryCity": {
+                    "type": "string"
+                },
+                "deliveryPostcode": {
+                    "type": "string",
+                    "example": "E6 1AB"
+                },
+                "deliveryStreet": {
+                    "description": "Delivery address, for fulfilmentType delivery (street falls back to\neventLocation).",
+                    "type": "string"
+                },
+                "designNotes": {
+                    "type": "string",
+                    "example": "Pink and gold, fresh flowers"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -17943,6 +18192,15 @@
                     "type": "string",
                     "example": "baby_shower"
                 },
+                "flavour": {
+                    "type": "string",
+                    "example": "Red Velvet"
+                },
+                "fulfilmentType": {
+                    "description": "The order created with the enquiry (all optional, backward compatible).\ndate (YYYY-MM-DD) is the day it is needed; without it eventDate is\nused, and with neither parseable only the enquiry is recorded.",
+                    "type": "string",
+                    "example": "pickup"
+                },
                 "guestCount": {
                     "type": "integer",
                     "example": 40
@@ -17952,6 +18210,27 @@
                 },
                 "name": {
                     "type": "string"
+                },
+                "photoUrls": {
+                    "description": "Up to 3 photos from POST /storefront/uploads/cake-photo (id or url).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "servings": {
+                    "description": "Cake details, all optional free text, carried on the order line.",
+                    "type": "string",
+                    "example": "30"
+                },
+                "slotEnd": {
+                    "type": "string",
+                    "example": "14:30"
+                },
+                "slotStart": {
+                    "description": "Preferred time, \"HH:MM\"; slotStart defaults to eventTime, then 09:00.",
+                    "type": "string",
+                    "example": "14:00"
                 }
             }
         },
@@ -19341,6 +19620,11 @@
                 "branchId": {
                     "type": "string"
                 },
+                "cakeMessage": {
+                    "description": "The message piped on the cake (single-item form).",
+                    "type": "string",
+                    "example": "Happy Birthday Amma"
+                },
                 "city": {
                     "type": "string"
                 },
@@ -19679,6 +19963,11 @@
             "properties": {
                 "branchId": {
                     "type": "string"
+                },
+                "cakeMessage": {
+                    "description": "The message piped on the cake; validated against the product's\ncakeMessageMode and cakeMessageMaxLength.",
+                    "type": "string",
+                    "example": "Happy Birthday Amma"
                 },
                 "comments": {
                     "type": "string"
@@ -20152,6 +20441,11 @@
                     "description": "Which trip to the kitchen this line was on, so a ticket can show what is\nnew and the screen can group by round.",
                     "type": "integer"
                 },
+                "cakeMessage": {
+                    "description": "The message piped on the cake (separate from the gift message). Null\nwhen none.",
+                    "type": "string",
+                    "example": "Happy Birthday Amma"
+                },
                 "cancelTime": {
                     "description": "When the till cancelled this line. Null for a line still standing.",
                     "type": "string"
@@ -20218,6 +20512,13 @@
                 },
                 "minPrepTimeUnit": {
                     "type": "string"
+                },
+                "photoUrls": {
+                    "description": "Customer photos to print on the cake (custom orders, up to 3). Always\nan array, empty when none.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "presentation": {
                     "$ref": "#/definitions/services_orders_internal_api.modifierDTOType"
@@ -20329,6 +20630,9 @@
                 "deliveryInstructions": {
                     "type": "string"
                 },
+                "enquiryId": {
+                    "type": "string"
+                },
                 "fulfilmentType": {
                     "type": "string"
                 },
@@ -20345,6 +20649,10 @@
                     "type": "string"
                 },
                 "isAmended": {
+                    "type": "boolean"
+                },
+                "isCustomOrder": {
+                    "description": "Custom Orders form: price to be confirmed (total 0), unpaid. source\nis \"custom_order\" then, else null.",
                     "type": "boolean"
                 },
                 "isGift": {
@@ -20421,6 +20729,9 @@
                 "slotStartAt": {
                     "type": "string"
                 },
+                "source": {
+                    "type": "string"
+                },
                 "stage": {
                     "description": "active | ready | fulfilled | cancelled — which rail the ticket sits on.",
                     "type": "string"
@@ -20465,6 +20776,10 @@
         "services_orders_internal_api.manualOrderItemJSON": {
             "type": "object",
             "properties": {
+                "cakeMessage": {
+                    "description": "The message piped on the cake; optional for staff even when the\nproduct requires one, but still limited to its length.",
+                    "type": "string"
+                },
                 "productId": {
                     "type": "string"
                 },
@@ -20637,6 +20952,9 @@
                 "endTime": {
                     "type": "string"
                 },
+                "enquiryId": {
+                    "type": "string"
+                },
                 "fulfilmentType": {
                     "type": "string"
                 },
@@ -20674,6 +20992,10 @@
                     "type": "string"
                 },
                 "isAmended": {
+                    "type": "boolean"
+                },
+                "isCustomOrder": {
+                    "description": "True for an order created from the Custom Orders form: price to be\nconfirmed (total 0) and unpaid. source is \"custom_order\" then, else\nnull; enquiryId is the enquiry it came from.",
                     "type": "boolean"
                 },
                 "isGift": {
@@ -20806,6 +21128,9 @@
                 "slotStart": {
                     "type": "string"
                 },
+                "source": {
+                    "type": "string"
+                },
                 "splitMode": {
                     "description": "How the bill was split (amount, item, custom), or null if it was not.",
                     "type": "string"
@@ -20862,6 +21187,11 @@
                     "description": "Which trip to the kitchen this line was on, so a ticket can show what is\nnew and the screen can group by round.",
                     "type": "integer"
                 },
+                "cakeMessage": {
+                    "description": "The message piped on the cake (separate from the gift message). Null\nwhen none.",
+                    "type": "string",
+                    "example": "Happy Birthday Amma"
+                },
                 "cancelTime": {
                     "description": "When the till cancelled this line. Null for a line still standing.",
                     "type": "string"
@@ -20904,6 +21234,13 @@
                 },
                 "lineTotalCents": {
                     "type": "integer"
+                },
+                "photoUrls": {
+                    "description": "Customer photos to print on the cake (custom orders, up to 3). Always\nan array, empty when none.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "presentation": {
                     "$ref": "#/definitions/services_orders_internal_api.modifierDTOType"
@@ -21136,6 +21473,10 @@
                     "type": "string"
                 },
                 "isAmended": {
+                    "type": "boolean"
+                },
+                "isCustomOrder": {
+                    "description": "Custom Orders form order: price to be confirmed, unpaid.",
                     "type": "boolean"
                 },
                 "itemCount": {
@@ -22087,6 +22428,15 @@
                 "deliveryMessage": {
                     "type": "string"
                 },
+                "deliveryMinimumCents": {
+                    "description": "The store's minimum item subtotal for delivery (0 = no minimum) and\nhow much more the basket needs (0 once reached). Below the minimum a\ndelivery cart has deliveryAvailable false and deliveryMessage\n\"Orders under £50 are collection only. Add £18.01 more to unlock local\ndelivery.\" Reported for pickup carts too, so the basket can say it.",
+                    "type": "integer",
+                    "example": 5000
+                },
+                "deliveryShortfallCents": {
+                    "type": "integer",
+                    "example": 1801
+                },
                 "discount": {
                     "type": "integer"
                 },
@@ -22462,6 +22812,10 @@
         "services_orders_internal_api.updateCartItemRequest": {
             "type": "object",
             "properties": {
+                "cakeMessage": {
+                    "description": "Omit to keep the message on the cake; \"\" clears it.",
+                    "type": "string"
+                },
                 "giftMessage": {
                     "type": "string"
                 },

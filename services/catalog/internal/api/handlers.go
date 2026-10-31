@@ -13,8 +13,10 @@ import (
 	"bakehouse/pkg/auth"
 	"bakehouse/pkg/httpx"
 	"bakehouse/pkg/media"
+	"bakehouse/pkg/ratelimit"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/domain"
+	"bakehouse/services/catalog/internal/store"
 )
 
 type Handler struct {
@@ -26,6 +28,8 @@ type Handler struct {
 	// videos stores product videos (one per product). Nil disables video
 	// upload and delivery.
 	videos media.VideoStorer
+	// limiter throttles public customer-photo uploads per IP; nil is off.
+	limiter *ratelimit.Limiter
 }
 
 // UseVideos sets the product video store.
@@ -101,8 +105,10 @@ func (h *Handler) GetCategoryStorefront(w http.ResponseWriter, r *http.Request) 
 //	@Produce		json
 //	@Param			branchId		query		string	false	"Branch to resolve availability against. Omit to browse the whole catalogue."
 //	@Param			date			query		string	false	"Availability date (YYYY-MM-DD), defaults to today"
-//	@Param			search			query		string	false	"Partial match on product name and description"
-//	@Param			categoryId		query		string	false	"Category tab"
+//	@Param			search			query		string	false	"Partial match on product name, description and product code"
+//	@Param			categoryId		query		string	false	"Category ids; repeated or comma-separated. Matches ANY (one id = the old single tab)"
+//	@Param			colour			query		string	false	"Colours (Pink, Blue, ...); repeated or comma-separated. Matches ANY"
+//	@Param			sponge			query		string	false	"Sponges (Chocolate, Vanilla, ...); repeated or comma-separated. Matches ANY; ANDed with colour"
 //	@Param			occasion		query		string	false	"Occasion tags; repeated or comma-separated. Matches ANY"
 //	@Param			tag				query		string	false	"Seasonal tag ids (from /storefront/seasonal-tags); repeated or comma-separated. Matches ANY"
 //	@Param			dietary			query		string	false	"Dietary flags; repeated or comma-separated. Matches ALL"
@@ -185,8 +191,10 @@ type productListMeta struct {
 // could not have produced rather than silently ignoring them.
 func parseProductFilter(q url.Values) (catalogapi.ProductFilter, error) {
 	f := catalogapi.ProductFilter{
-		Search:     strings.TrimSpace(q.Get("search")),
-		CategoryID: q.Get("categoryId"),
+		Search: strings.TrimSpace(q.Get("search")),
+		// categoryId may be repeated or comma-separated (multi-select);
+		// categoryIds is accepted as an alias. One id behaves as before.
+		CategoryIDs: append(multiValue(q, "categoryId"), multiValue(q, "categoryIds")...),
 		// Also accepted by slug. A till tabs across categories by the name it
 		// was given in the list, and making it carry a uuid around to ask for
 		// "Bouquets" is friction with nothing behind it.
@@ -198,6 +206,16 @@ func parseProductFilter(q url.Values) (catalogapi.ProductFilter, error) {
 		Sort:           q.Get("sort"),
 	}
 	f.SearchNameOnly = q.Get("searchScope") == "name"
+
+	// Colours and sponges are matched against the canonical spellings, so
+	// "pink" and "red velvet" work; an unknown value is a 400.
+	var bad []string
+	if f.Colours, bad = catalogapi.NormaliseColours(append(multiValue(q, "colour"), multiValue(q, "colours")...)); len(bad) > 0 {
+		return f, apperr.Validation("Unknown colour: " + strings.Join(bad, ", ") + ".")
+	}
+	if f.Sponges, bad = catalogapi.NormaliseSponges(append(multiValue(q, "sponge"), multiValue(q, "sponges")...)); len(bad) > 0 {
+		return f, apperr.Validation("Unknown sponge: " + strings.Join(bad, ", ") + ".")
+	}
 
 	switch f.Sort {
 	case "", catalogapi.SortMostGifted, catalogapi.SortPriceAsc, catalogapi.SortPriceDesc,
@@ -320,6 +338,9 @@ func (h *Handler) StorefrontFacets(w http.ResponseWriter, r *http.Request) {
 		Dietary:       facets.Dietary,
 		MinPriceCents: facets.MinPriceCents,
 		MaxPriceCents: facets.MaxPriceCents,
+		Categories:    facetCategoryDTOs(facets.Categories),
+		Colours:       facetOptionDTOs(facets.Colours),
+		Sponges:       facetOptionDTOs(facets.Sponges),
 		Sorts: []sortOptionDTO{
 			{Value: catalogapi.SortMostGifted, Label: "Most Gifted"},
 			{Value: catalogapi.SortPriceAsc, Label: "Price: Low to High"},
@@ -337,7 +358,14 @@ type facetsDTOType struct {
 	Dietary       []string             `json:"dietary"`
 	MinPriceCents int64                `json:"minPriceCents" example:"3200"`
 	MaxPriceCents int64                `json:"maxPriceCents" example:"14200"`
-	Sorts         []sortOptionDTO      `json:"sorts"`
+	// Every active category in the admin's order, with its count of live
+	// website products — categories with none are included (count 0).
+	Categories []facetCategoryDTO `json:"categories"`
+	// Every allowed colour and sponge, in a fixed order, with product counts
+	// (0 included). Filter with ?colour= and ?sponge=.
+	Colours []facetOptionDTO `json:"colours"`
+	Sponges []facetOptionDTO `json:"sponges"`
+	Sorts   []sortOptionDTO  `json:"sorts"`
 }
 
 type sortOptionDTO struct {
@@ -430,6 +458,37 @@ func splitCSV(s string) []string {
 			}
 			start = i + 1
 		}
+	}
+	return out
+}
+
+type facetCategoryDTO struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Slug      string  `json:"slug"`
+	SortOrder int     `json:"sortOrder"`
+	ImageURL  *string `json:"imageUrl"`
+	// Live website products in the category, before any other filter.
+	Count int `json:"count" example:"12"`
+}
+
+type facetOptionDTO struct {
+	Value string `json:"value" example:"Pink"`
+	Count int    `json:"count" example:"7"`
+}
+
+func facetCategoryDTOs(in []store.CategoryCount) []facetCategoryDTO {
+	out := make([]facetCategoryDTO, 0, len(in))
+	for _, c := range in {
+		out = append(out, facetCategoryDTO{ID: c.ID, Name: c.Name, Slug: c.Slug, SortOrder: c.SortOrder, ImageURL: c.ImageURL, Count: c.Count})
+	}
+	return out
+}
+
+func facetOptionDTOs(in []domain.OptionCount) []facetOptionDTO {
+	out := make([]facetOptionDTO, 0, len(in))
+	for _, o := range in {
+		out = append(out, facetOptionDTO{Value: o.Value, Count: o.Count})
 	}
 	return out
 }

@@ -548,6 +548,7 @@ type ManualOrderItemRequest struct {
 	PresentationID *string
 	WrapColourID   *string
 	Quantity       int
+	CakeMessage    *string
 }
 
 type CreateManualOrderRequest struct {
@@ -604,6 +605,7 @@ func (s *Service) CreateManualOrder(ctx context.Context, claims *auth.StaffClaim
 			BranchID: req.BranchID, ProductID: item.ProductID, VariantID: item.VariantID,
 			FlavourIDs: item.FlavourIDs, AddonIDs: item.AddonIDs, PresentationID: item.PresentationID, WrapColourID: item.WrapColourID,
 			Quantity: item.Quantity, IsGift: req.IsGift, RecipientFirst: &req.Recipient.FirstName, RecipientLast: &req.Recipient.LastName, GiftMessage: req.GiftMessage,
+			CakeMessage: item.CakeMessage,
 		}); err != nil {
 			return nil, err
 		}

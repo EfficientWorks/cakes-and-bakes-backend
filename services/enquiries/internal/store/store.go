@@ -47,6 +47,12 @@ func scanEnquiry(row pgx.Row) (*enquiriesapi.Enquiry, error) {
 			return nil, fmt.Errorf("decode enquiry details: %w", err)
 		}
 	}
+	if v, ok := e.Details["orderId"].(string); ok && v != "" {
+		e.OrderID = &v
+	}
+	if v, ok := e.Details["orderReference"].(string); ok && v != "" {
+		e.OrderReference = &v
+	}
 	return &e, nil
 }
 
@@ -198,4 +204,18 @@ func nullIfEmpty(v string) *string {
 		return nil
 	}
 	return &v
+}
+
+// MergeDetails adds keys to an enquiry's details (custom order: the order it
+// created).
+func (s *Store) MergeDetails(ctx context.Context, id string, extra map[string]any) error {
+	raw, err := json.Marshal(extra)
+	if err != nil {
+		return fmt.Errorf("encode enquiry details: %w", err)
+	}
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE enquiries SET details = details || $2::jsonb, updated_at = NOW() WHERE id = $1`, id, raw); err != nil {
+		return fmt.Errorf("merge enquiry details: %w", err)
+	}
+	return nil
 }

@@ -52,8 +52,12 @@ type Enquiry struct {
 	HandledBy *string    `json:"handledBy,omitempty"`
 	HandledAt *time.Time `json:"handledAt,omitempty"`
 	StaffNote *string    `json:"staffNote,omitempty"`
-	CreatedAt time.Time  `json:"createdAt"`
-	UpdatedAt time.Time  `json:"updatedAt"`
+	// OrderID and OrderReference name the order a custom-order enquiry
+	// created (price to be confirmed, unpaid). Also kept in details.
+	OrderID        *string   `json:"orderId,omitempty"`
+	OrderReference *string   `json:"orderReference,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 // EnquiryFilter drives the admin queue.

@@ -104,18 +104,30 @@ func productFilterWhere(f catalogapi.ProductFilter, business *string) (string, [
 		pattern := "%" + shared.LikeEscape(f.Search) + "%"
 		args = append(args, pattern)
 		if f.SearchNameOnly {
-			q += fmt.Sprintf(" AND p.name ILIKE $%d ESCAPE '\\'", len(args))
+			q += fmt.Sprintf(" AND (p.name ILIKE $%d ESCAPE '\\' OR p.code ILIKE $%d ESCAPE '\\')", len(args), len(args))
 		} else {
 			// ILIKE rides the trigram indexes on both columns.
-			q += fmt.Sprintf(" AND (p.name ILIKE $%d ESCAPE '\\' OR p.description ILIKE $%d ESCAPE '\\')", len(args), len(args))
+			// Product codes ("WPC-040") are searched too.
+			q += fmt.Sprintf(" AND (p.name ILIKE $%d ESCAPE '\\' OR p.description ILIKE $%d ESCAPE '\\' OR p.code ILIKE $%d ESCAPE '\\')", len(args), len(args), len(args))
 		}
 	}
-	if f.CategoryID != "" {
-		args = append(args, f.CategoryID)
-		q += fmt.Sprintf(" AND p.category_id = $%d", len(args))
+	if ids := categoryIDs(f); len(ids) > 0 {
+		// Any of the chosen categories (multi-select); text compare so a
+		// malformed id matches nothing rather than failing the query.
+		args = append(args, ids)
+		q += fmt.Sprintf(" AND p.category_id::text = ANY($%d)", len(args))
 	} else if f.CategorySlug != "" {
 		args = append(args, f.CategorySlug)
 		q += fmt.Sprintf(" AND c.slug = $%d", len(args))
+	}
+	if len(f.Colours) > 0 {
+		// Overlap: any selected colour.
+		args = append(args, f.Colours)
+		q += fmt.Sprintf(" AND p.colours && $%d", len(args))
+	}
+	if len(f.Sponges) > 0 {
+		args = append(args, f.Sponges)
+		q += fmt.Sprintf(" AND p.sponges && $%d", len(args))
 	}
 	if len(f.Occasions) > 0 {
 		// Overlap: any selected occasion matches.
@@ -245,4 +257,78 @@ func sortClause(sort, priceLo string) string {
 	default: // SortMostGifted
 		return " ORDER BY p.popularity_score DESC, p.is_best_seller DESC, p.sort_order, p.id"
 	}
+}
+
+// CategoryCount is one category in the filter panel with how many products
+// the storefront would list in it.
+type CategoryCount struct {
+	ID        string
+	Name      string
+	Slug      string
+	SortOrder int
+	ImageURL  *string
+	Count     int
+}
+
+// CategoryCounts returns every active category of the business, in the
+// order the admin set, each with its count of active, website-visible
+// products — zero included, so the panel can list them all.
+func (s *Repo) CategoryCounts(ctx context.Context) ([]CategoryCount, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT c.id, c.name, c.slug, c.sort_order, c.image_url,
+		       (SELECT count(*) FROM products p
+		         WHERE p.category_id = c.id AND p.deleted_at IS NULL
+		           AND p.is_active AND p.show_on_website)::int
+		  FROM product_categories c
+		 WHERE c.is_active = true AND c.business_id IS NOT DISTINCT FROM $1
+		 ORDER BY c.sort_order, c.name`, tenant.BusinessParam(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("load category counts: %w", err)
+	}
+	defer rows.Close()
+	out := []CategoryCount{}
+	for rows.Next() {
+		var c CategoryCount
+		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.SortOrder, &c.ImageURL, &c.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// OptionCounts counts the storefront's live products per colour and per
+// sponge (a product with two colours counts once under each).
+func (s *Repo) OptionCounts(ctx context.Context) (colours, sponges map[string]int, err error) {
+	count := func(column string) (map[string]int, error) {
+		rows, err := s.pool.Query(ctx, `
+			SELECT v, count(*)::int
+			  FROM products p
+			  JOIN product_categories c ON c.id = p.category_id
+			  CROSS JOIN LATERAL unnest(p.`+column+`) v
+			 WHERE p.deleted_at IS NULL AND p.is_active AND p.show_on_website AND c.is_active
+			   AND p.business_id IS NOT DISTINCT FROM $1
+			 GROUP BY v`, tenant.BusinessParam(ctx))
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		out := map[string]int{}
+		for rows.Next() {
+			var v string
+			var n int
+			if err := rows.Scan(&v, &n); err != nil {
+				return nil, err
+			}
+			out[v] = n
+		}
+		return out, rows.Err()
+	}
+	if colours, err = count("colours"); err != nil {
+		return nil, nil, fmt.Errorf("count colours: %w", err)
+	}
+	if sponges, err = count("sponges"); err != nil {
+		return nil, nil, fmt.Errorf("count sponges: %w", err)
+	}
+	return colours, sponges, nil
 }

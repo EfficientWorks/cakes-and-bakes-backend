@@ -19,6 +19,7 @@ import (
 	"bakehouse/services/enquiries/internal/domain"
 	"bakehouse/services/enquiries/internal/store"
 	"bakehouse/services/franchise/franchiseapi"
+	"bakehouse/services/orders/ordersapi"
 )
 
 // Module is the assembled enquiries service.
@@ -35,6 +36,9 @@ func New(pool *pgxpool.Pool, branches franchiseapi.BranchReader, emailer email.E
 	svc := domain.NewService(st, branches, emailer, limiter)
 	return &Module{store: st, svc: svc, handler: api.NewHandler(svc)}
 }
+
+// UseOrders lets a custom-order enquiry also create its order (F3).
+func (m *Module) UseOrders(o ordersapi.CustomOrderCreator) { m.svc.UseOrders(o) }
 
 // MountPublic attaches the storefront forms and the newsletter endpoints.
 // UseBrandInbox points brand-level enquiries at a configured mailbox.

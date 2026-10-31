@@ -89,7 +89,7 @@ func (s *Repo) ListOrders(ctx context.Context, f ordersapi.ListOrdersFilter) ([]
 			SELECT id, order_id, COALESCE(product_id::text, ''), product_name, variant_id, variant_name, quantity, unit_price_cents, line_total_cents,
 			       selected_flavours, selected_addons, selected_presentation, selected_wrap_colour, production_status,
 			       batch_no, returned_quantity, send_kot_time, discount_cents, discount_pct, comments, cancelled_at, production_started_at, production_done_at,
-			       gift_message, gift_reason
+			       gift_message, gift_reason, cake_message, photo_urls
 			FROM order_items WHERE order_id = ANY($1) ORDER BY batch_no, id`, orderIDs)
 		if err == nil {
 			defer itemRows.Close()
@@ -100,7 +100,7 @@ func (s *Repo) ListOrders(ctx context.Context, f ordersapi.ListOrdersFilter) ([]
 				if err := itemRows.Scan(&i.ID, &ordID, &i.ProductID, &i.ProductName, &i.VariantID, &i.VariantName,
 					&i.Quantity, &i.UnitPriceCents, &i.LineTotalCents, &flavoursRaw, &addonsRaw, &presRaw, &wrapRaw,
 					&i.ProductionStatus, &i.BatchNo, &i.ReturnedQuantity, &i.SendKotTime, &i.ItemDiscountCents, &i.ItemDiscountPct, &i.Comments, &i.CancelledAt, &i.ProductionStartedAt, &i.ProductionDoneAt,
-					&i.GiftMessage, &i.GiftReason); err == nil {
+					&i.GiftMessage, &i.GiftReason, &i.CakeMessage, &i.PhotoURLs); err == nil {
 					i.OrderID = ordID
 					_ = json.Unmarshal(flavoursRaw, &i.SelectedFlavours)
 					_ = json.Unmarshal(addonsRaw, &i.SelectedAddons)

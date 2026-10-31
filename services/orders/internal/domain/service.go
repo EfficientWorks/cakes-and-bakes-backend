@@ -53,6 +53,8 @@ type Service struct {
 	tagRestrictions catalogapi.TagRestrictions
 	// Street-address geocoding for radius delivery (see UseAddressGeocoder).
 	addrGeo geo.AddressGeocoder
+	// photos checks customer-photo urls (custom orders); see UseCustomerPhotos.
+	photos catalogapi.CustomerPhotos
 }
 
 func NewService(store *store.Store, branches BranchLookup, catalogSvc CatalogLookup, coupons catalogapi.CouponPricer, sales catalogapi.SalesRecorder, payments paymentsapi.Processor, emailer email.Emailer, auditWriter *audit.Writer, locationIQAccessToken string) *Service {

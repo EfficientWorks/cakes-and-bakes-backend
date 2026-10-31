@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -14,6 +15,7 @@ import (
 	"bakehouse/pkg/httpx"
 	"bakehouse/services/enquiries/enquiriesapi"
 	"bakehouse/services/enquiries/internal/domain"
+	"bakehouse/services/orders/ordersapi"
 )
 
 // Handler serves the three storefront forms, the newsletter footer, and the
@@ -60,12 +62,35 @@ type customOrderRequest struct {
 	GuestCount            *int    `json:"guestCount" example:"40"`
 	BranchID              string  `json:"branchId"`
 	AdditionalInformation *string `json:"additionalInformation"`
+
+	// The order created with the enquiry (all optional, backward compatible).
+	// date (YYYY-MM-DD) is the day it is needed; without it eventDate is
+	// used, and with neither parseable only the enquiry is recorded.
+	FulfilmentType string `json:"fulfilmentType" example:"pickup"`
+	Date           string `json:"date" example:"2026-11-14"`
+	// Preferred time, "HH:MM"; slotStart defaults to eventTime, then 09:00.
+	SlotStart string `json:"slotStart" example:"14:00"`
+	SlotEnd   string `json:"slotEnd" example:"14:30"`
+	// Delivery address, for fulfilmentType delivery (street falls back to
+	// eventLocation).
+	DeliveryStreet   string `json:"deliveryStreet"`
+	DeliveryCity     string `json:"deliveryCity"`
+	DeliveryPostcode string `json:"deliveryPostcode" example:"E6 1AB"`
+	// What the cake should say, at most 40 characters.
+	CakeMessage string `json:"cakeMessage" example:"Happy 30th Priya"`
+	// Up to 3 photos from POST /storefront/uploads/cake-photo (id or url).
+	PhotoURLs []string `json:"photoUrls"`
+	// Cake details, all optional free text, carried on the order line.
+	Servings    string `json:"servings" example:"30"`
+	CakeSize    string `json:"cakeSize" example:"8 inch, two tier"`
+	Flavour     string `json:"flavour" example:"Red Velvet"`
+	DesignNotes string `json:"designNotes" example:"Pink and gold, fresh flowers"`
 }
 
 // SubmitCustomOrder records a custom-order enquiry against a chosen store.
 //
 //	@Summary		Submit a custom order enquiry
-//	@Description	The "Need a Custom Order?" form. Requires a store location — the enquiry is routed to that branch and inherits its franchise. Submitting this only starts a conversation; bookings are confirmed by phone.
+//	@Description	The "Need a Custom Order?" form. Requires a store location — the enquiry is routed to that branch. When a date is given (date, else a YYYY-MM-DD eventDate) it also creates an order for that store and day: source custom_order, total 0 (price to be confirmed), unpaid, carrying cakeMessage (max 40) and up to 3 photoUrls from /storefront/uploads/cake-photo. The response is the enquiry with orderId and orderReference.
 //	@Tags			enquiries
 //	@Accept			json
 //	@Produce		json
@@ -95,6 +120,25 @@ func (h *Handler) SubmitCustomOrder(w http.ResponseWriter, r *http.Request) {
 	if req.AdditionalInformation != nil {
 		message = *req.AdditionalInformation
 	}
+	for k, v := range map[string]string{
+		"fulfilmentType": req.FulfilmentType, "date": req.Date, "slotStart": req.SlotStart, "slotEnd": req.SlotEnd,
+		"deliveryStreet": req.DeliveryStreet, "deliveryCity": req.DeliveryCity, "deliveryPostcode": req.DeliveryPostcode,
+		"cakeMessage": req.CakeMessage, "servings": req.Servings, "cakeSize": req.CakeSize,
+		"flavour": req.Flavour, "designNotes": req.DesignNotes,
+	} {
+		if v = strings.TrimSpace(v); v != "" {
+			details[k] = v
+		}
+	}
+	if len(req.PhotoURLs) > 0 {
+		details["photoUrls"] = req.PhotoURLs
+	}
+
+	order, err := customOrderFromRequest(req, message)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 
 	h.submit(w, r, domain.SubmitRequest{
 		Type:     enquiriesapi.TypeCustomOrder,
@@ -104,7 +148,86 @@ func (h *Handler) SubmitCustomOrder(w http.ResponseWriter, r *http.Request) {
 		Message:  message,
 		BranchID: req.BranchID,
 		Details:  details,
+		Order:    order,
 	})
+}
+
+// customOrderFromRequest is the order a custom-order form asks for, or nil
+// when the form names no usable date (an older client: enquiry only).
+func customOrderFromRequest(req customOrderRequest, info string) (*ordersapi.CustomOrderRequest, error) {
+	var date time.Time
+	if raw := strings.TrimSpace(req.Date); raw != "" {
+		d, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return nil, apperr.Validation("date must be YYYY-MM-DD.").
+				WithFields(apperr.FieldError{Field: "date", Code: "INVALID", Message: "YYYY-MM-DD."})
+		}
+		date = d
+	} else if d, ok := parseEventDate(req.EventDate); ok {
+		date = d
+	} else {
+		return nil, nil
+	}
+
+	slotStart := strings.TrimSpace(req.SlotStart)
+	if slotStart == "" {
+		if t, err := time.Parse("15:04", strings.TrimSpace(req.EventTime)); err == nil {
+			slotStart = t.Format("15:04")
+		}
+	}
+	street := strings.TrimSpace(req.DeliveryStreet)
+	if street == "" {
+		street = strings.TrimSpace(req.EventLocation)
+	}
+
+	// Everything else on the form, for the kitchen and the person pricing it.
+	var notes []string
+	add := func(label, v string) {
+		if v = strings.TrimSpace(v); v != "" {
+			notes = append(notes, label+": "+v)
+		}
+	}
+	add("Occasion", humanise(req.EventType))
+	add("Event date", req.EventDate)
+	add("Event time", req.EventTime)
+	add("Event location", req.EventLocation)
+	if req.GuestCount != nil {
+		add("Guests", strconv.Itoa(*req.GuestCount))
+	}
+	add("Servings", req.Servings)
+	add("Size", req.CakeSize)
+	add("Flavour", req.Flavour)
+	add("Design", req.DesignNotes)
+	add("Details", info)
+	notes = append(notes, "Price to be confirmed with the customer.")
+
+	return &ordersapi.CustomOrderRequest{
+		FulfilmentType: req.FulfilmentType, Date: date, SlotStart: slotStart, SlotEnd: req.SlotEnd,
+		Name: req.Name, Email: req.Email, Phone: req.MobileNumber,
+		Street: street, City: req.DeliveryCity, Postcode: req.DeliveryPostcode,
+		Title: "Custom cake", CakeMessage: req.CakeMessage, PhotoRefs: req.PhotoURLs,
+		Notes: strings.Join(notes, "\n"),
+	}, nil
+}
+
+// parseEventDate reads the form's eventDate as YYYY-MM-DD or DD/MM/YYYY.
+func parseEventDate(raw string) (time.Time, bool) {
+	raw = strings.TrimSpace(raw)
+	for _, layout := range []string{"2006-01-02", "02/01/2006"} {
+		if d, err := time.Parse(layout, raw); err == nil {
+			return d, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// humanise turns "baby_shower" into "Baby shower".
+func humanise(v string) string {
+	v = strings.TrimSpace(strings.ReplaceAll(v, "_", " "))
+	if v == "" {
+		return ""
+	}
+	return strings.ToUpper(v[:1]) + v[1:]
 }
 
 // --- Franchise ----------------------------------------------------------------

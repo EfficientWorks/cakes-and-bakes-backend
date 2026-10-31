@@ -16,6 +16,7 @@ import (
 	"bakehouse/services/enquiries/enquiriesapi"
 	"bakehouse/services/enquiries/internal/store"
 	"bakehouse/services/franchise/franchiseapi"
+	"bakehouse/services/orders/ordersapi"
 )
 
 // BranchLookup is the franchise read surface this service needs: a custom-order
@@ -46,7 +47,12 @@ type Service struct {
 	// for. Set by UseBusinessInbox.
 	businessInbox func(ctx context.Context) string
 	limiter       *ratelimit.Limiter
+	// orders creates the order behind a custom-order enquiry; nil: none.
+	orders ordersapi.CustomOrderCreator
 }
+
+// UseOrders lets a custom-order enquiry create its order.
+func (s *Service) UseOrders(o ordersapi.CustomOrderCreator) { s.orders = o }
 
 // NewService assembles the service. limiter and emailer may be nil — the
 // forms still record, they simply lose throttling and notification.
@@ -66,6 +72,8 @@ type SubmitRequest struct {
 	Details map[string]any
 	// SourceIP is recorded for abuse triage, never returned to a client.
 	SourceIP string
+	// Order, for a custom-order enquiry, also creates an order (F3).
+	Order *ordersapi.CustomOrderRequest
 }
 
 // Submit validates, routes and records an enquiry, then notifies the branch or
@@ -87,10 +95,6 @@ func (s *Service) Submit(ctx context.Context, req SubmitRequest) (*enquiriesapi.
 	if err != nil {
 		return nil, err
 	}
-	if err := s.checkRate(ctx, addr); err != nil {
-		return nil, err
-	}
-
 	enquiry := enquiriesapi.Enquiry{
 		Type:    req.Type,
 		Name:    name,
@@ -120,9 +124,28 @@ func (s *Service) Submit(ctx context.Context, req SubmitRequest) (*enquiriesapi.
 			WithFields(apperr.FieldError{Field: "branchId", Code: "REQUIRED", Message: "Please select a store location."})
 	}
 
+	// A custom order is checked before anything is recorded, so a bad date
+	// or photo is a 400 rather than an enquiry without its order.
+	wantOrder := req.Type == enquiriesapi.TypeCustomOrder && req.Order != nil && s.orders != nil
+	if wantOrder {
+		req.Order.BranchID = *enquiry.BranchID
+		if err := s.orders.ValidateCustomOrder(ctx, *req.Order); err != nil {
+			return nil, err
+		}
+	}
+
+	// Throttled only once the form is valid: a customer correcting a date,
+	// time or photo must not use up the hourly allowance on rejected tries.
+	if err := s.checkRate(ctx, addr); err != nil {
+		return nil, err
+	}
+
 	created, err := s.store.Create(ctx, enquiry, req.SourceIP)
 	if err != nil {
 		return nil, apperr.Internal(err)
+	}
+	if wantOrder {
+		s.attachOrder(ctx, created, *req.Order)
 	}
 	s.notify(ctx, created)
 	return created, nil
@@ -374,3 +397,23 @@ func (s *Service) UseBrandInbox(addr string) { s.inbox = addr }
 // UseBusinessInbox sets how the contact email of the business a request acts
 // for is found.
 func (s *Service) UseBusinessInbox(fn func(ctx context.Context) string) { s.businessInbox = fn }
+
+// attachOrder creates the order behind a custom-order enquiry and records it
+// on the enquiry. The enquiry is already saved and was validated with the
+// order, so a failure here is logged rather than losing the customer's form.
+func (s *Service) attachOrder(ctx context.Context, e *enquiriesapi.Enquiry, req ordersapi.CustomOrderRequest) {
+	req.EnquiryID = e.ID
+	order, err := s.orders.CreateCustomOrder(ctx, req)
+	if err != nil {
+		slog.Error("custom order enquiry: order not created", "enquiryId", e.ID, "cause", err)
+		return
+	}
+	extra := map[string]any{"orderId": order.ID, "orderReference": order.Reference}
+	if err := s.store.MergeDetails(ctx, e.ID, extra); err != nil {
+		slog.Warn("custom order enquiry: could not record its order", "enquiryId", e.ID, "order", order.Reference, "cause", err)
+	}
+	for k, v := range extra {
+		e.Details[k] = v
+	}
+	e.OrderID, e.OrderReference = &order.ID, &order.Reference
+}

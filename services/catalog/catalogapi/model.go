@@ -162,6 +162,19 @@ type Product struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 
+	// Code is the shop's own product code ("WPC-040"): upper-case, unique
+	// within the business when set, nil when the product has none.
+	Code *string
+	// Colours and Sponges drive the storefront filters; values come from
+	// ProductColours and ProductSponges only.
+	Colours []string
+	Sponges []string
+	// Message piped on the cake: off | optional | required, the longest
+	// message in characters, and the chips the product page offers.
+	CakeMessageMode      string
+	CakeMessageMaxLength int
+	CakeMessagePresets   []string
+
 	Images         []ProductImage
 	Variants       []ProductVariant
 	ModifierGroups []ModifierGroup
@@ -284,6 +297,13 @@ type ProductFilter struct {
 	// nothing behind it. Ignored when CategoryID is set — an id is more
 	// specific, so it wins.
 	CategorySlug string
+	// CategoryIDs match ANY of the given categories (multi-select). Combined
+	// with CategoryID when both are set; CategorySlug is ignored when either is.
+	CategoryIDs []string
+	// Colours and Sponges each match ANY of their values; the two groups
+	// (and every other filter) are ANDed together.
+	Colours []string
+	Sponges []string
 	// Occasions match ANY of the given tags — picking Birthday and Anniversary
 	// widens the result set, which is what a shopper expects from those chips.
 	Occasions []string
@@ -534,6 +554,13 @@ type ProductPatch struct {
 	SortOrder         *int
 	PriceFloorCents   *int64
 	PriceCeilingCents *int64
+	// Code: "" removes it. Normalised and checked by the service.
+	Code                 *string
+	Colours              *[]string
+	Sponges              *[]string
+	CakeMessageMode      *string
+	CakeMessageMaxLength *int
+	CakeMessagePresets   *[]string
 	// AvailabilityWindow is nil when the patch does not mention scheduling.
 	// A non-nil window replaces both ends at once, including with nulls —
 	// which is how the console clears a schedule. Two independent pointers
@@ -628,6 +655,20 @@ func (patch ProductPatch) Apply(p Product) Product {
 	if patch.AvailabilityWindow != nil {
 		p.AvailableFrom = patch.AvailabilityWindow.From
 		p.AvailableUntil = patch.AvailabilityWindow.Until
+	}
+	setPtr(&p.Code, patch.Code)
+	if patch.Colours != nil {
+		p.Colours = *patch.Colours
+	}
+	if patch.Sponges != nil {
+		p.Sponges = *patch.Sponges
+	}
+	set(&p.CakeMessageMode, patch.CakeMessageMode)
+	if patch.CakeMessageMaxLength != nil {
+		p.CakeMessageMaxLength = *patch.CakeMessageMaxLength
+	}
+	if patch.CakeMessagePresets != nil {
+		p.CakeMessagePresets = *patch.CakeMessagePresets
 	}
 	if patch.AllergenFlags != nil {
 		p.AllergenFlags = *patch.AllergenFlags

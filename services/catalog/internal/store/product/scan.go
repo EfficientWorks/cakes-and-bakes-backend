@@ -21,7 +21,8 @@ func scanProduct(row pgx.Row) (*catalogapi.Product, error) {
 		&p.IsModifier,
 		&p.ShowOnPos, &p.ShowOnWebsite, &p.PricingMode,
 		&p.MinPrepTime, &p.MinPrepTimeUnit, &p.MaxPrepTime, &p.MaxPrepTimeUnit,
-		&p.VideoURL)
+		&p.VideoURL,
+		&p.Code, &p.Colours, &p.Sponges, &p.CakeMessageMode, &p.CakeMessageMaxLength, &p.CakeMessagePresets)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, shared.ErrNotFound
 	}

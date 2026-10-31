@@ -50,13 +50,14 @@ func (s *Repo) CreateOrderTx(ctx context.Context, o ordersapi.Order, items []ord
 			scheduled_date, slot_start, slot_end, slot_capacity_id,
 			subtotal_cents, delivery_fee_cents, tax_cents, tip_cents, discount_cents, discount_code, total_cents, currency,
 			status, payment_status, payment_method, provider_payment_id, idempotency_key, marketing_opt_in,
-			photo_on_delivery, surprise_delivery, bill_no, business_name, delivery_address_type, start_time, end_time, notes)
+			photo_on_delivery, surprise_delivery, bill_no, business_name, delivery_address_type, start_time, end_time, notes,
+			source, enquiry_id)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,
 			$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,
 			COALESCE($45::timestamptz, NOW()),
 			-- An end time only means something on an order that arrives closed.
 			CASE WHEN $34 IN ('settled', 'fulfilled', 'cancelled', 'returned') THEN $46::timestamptz ELSE NULL END,
-			$47)
+			$47, $48, $49)
 		RETURNING id`
 	var orderID string
 	err = tx.QueryRow(ctx, q, o.Reference, o.BranchID, o.CustomerID, o.Channel, o.FulfilmentType,
@@ -66,7 +67,8 @@ func (s *Repo) CreateOrderTx(ctx context.Context, o ordersapi.Order, items []ord
 		o.ScheduledDate, o.SlotStart, o.SlotEnd, o.SlotCapacityID,
 		o.SubtotalCents, o.DeliveryFeeCents, o.TaxCents, o.TipCents, o.DiscountCents, o.DiscountCode, o.TotalCents, o.Currency,
 		o.Status, o.PaymentStatus, orDefaultMethod(o.PaymentMethod), o.ProviderPaymentID, o.IdempotencyKey, o.MarketingOptIn,
-		o.PhotoOnDelivery, o.SurpriseDelivery, billNo, o.BusinessName, o.DeliveryAddressType, timex.EventTimeFrom(ctx), o.EndTime, o.Notes).Scan(&orderID)
+		o.PhotoOnDelivery, o.SurpriseDelivery, billNo, o.BusinessName, o.DeliveryAddressType, timex.EventTimeFrom(ctx), o.EndTime, o.Notes,
+		o.Source, o.EnquiryID).Scan(&orderID)
 	if err != nil {
 		return "", fmt.Errorf("insert order: %w", err)
 	}
@@ -91,11 +93,11 @@ func (s *Repo) CreateOrderTx(ctx context.Context, o ordersapi.Order, items []ord
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO order_items (order_id, product_id, product_name, variant_id, variant_name, quantity,
 				unit_price_cents, line_total_cents, selected_flavours, selected_addons, selected_presentation, selected_wrap_colour,comments,
-				gift_message, gift_reason, send_kot_time)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+				gift_message, gift_reason, send_kot_time, cake_message, photo_urls)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
 			orderID, shared.NilIfEmptyStr(item.ProductID), item.ProductName, item.VariantID, item.VariantName, item.Quantity,
 			item.UnitPriceCents, item.LineTotalCents, flavours, addons, pres, wrap, item.Comments,
-			shared.NilIfEmptyPtr(item.GiftMessage), shared.NilIfEmptyPtr(item.GiftReason), item.SendKotTime); err != nil {
+			shared.NilIfEmptyPtr(item.GiftMessage), shared.NilIfEmptyPtr(item.GiftReason), item.SendKotTime, shared.NilIfEmptyPtr(item.CakeMessage), orEmptyStrings(item.PhotoURLs)); err != nil {
 			return "", fmt.Errorf("insert order item: %w", err)
 		}
 	}
@@ -144,9 +146,21 @@ func NextBillNo(ctx context.Context, tx pgx.Tx, branchID string) (int, error) {
 // orDefaultMethod keeps the column's CHECK constraint satisfied for callers
 // that predate cash on delivery and leave PaymentMethod unset — every one of
 // those is a card order, which is what the column defaults to anyway.
-func orDefaultMethod(method string) string {
-	if method == "" {
-		return "card"
+// orDefaultMethod: empty is card (every web order before COD existed);
+// ordersapi.PaymentMethodNone stores no method (an unpaid custom order).
+func orDefaultMethod(method string) *string {
+	if method == ordersapi.PaymentMethodNone {
+		return nil
 	}
-	return method
+	if method == "" {
+		method = "card"
+	}
+	return &method
+}
+
+func orEmptyStrings(v []string) []string {
+	if v == nil {
+		return []string{}
+	}
+	return v
 }

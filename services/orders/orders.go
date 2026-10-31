@@ -26,6 +26,7 @@ import (
 	"bakehouse/services/orders/internal/api"
 	"bakehouse/services/orders/internal/domain"
 	"bakehouse/services/orders/internal/store"
+	"bakehouse/services/orders/ordersapi"
 	"bakehouse/services/payments/paymentsapi"
 )
 
@@ -76,6 +77,12 @@ func (m *Module) UseKDS(r franchiseapi.KDSReader) { m.svc.UseKDS(r) }
 
 // UseTagRestrictions wires seasonal tags' restricted dates (website orders).
 func (m *Module) UseTagRestrictions(r catalogapi.TagRestrictions) { m.svc.UseTagRestrictions(r) }
+
+// UseCustomerPhotos wires the check that a photo is a customer upload.
+func (m *Module) UseCustomerPhotos(p catalogapi.CustomerPhotos) { m.svc.UseCustomerPhotos(p) }
+
+// CustomOrders turns Custom Orders form enquiries into orders.
+func (m *Module) CustomOrders() ordersapi.CustomOrderCreator { return m.svc }
 
 // UseCardPayments wires Stripe payment links and card refunds.
 func (m *Module) UseCardPayments(c paymentsapi.Cards) { m.svc.UseCardPayments(c) }

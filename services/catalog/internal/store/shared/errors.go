@@ -7,6 +7,9 @@ import (
 )
 
 // Postgres error codes worth telling apart from "something went wrong".
+// productCodeIndex is the unique index on products (business_id, code).
+const productCodeIndex = "products_business_code_key"
+
 const (
 	pgUniqueViolation     = "23505"
 	pgForeignKeyViolation = "23503"
@@ -24,6 +27,9 @@ var (
 	ErrRelatedMissing = errors.New("store: related record not found")
 	// ErrMalformedID reports an id the database cannot even parse.
 	ErrMalformedID = errors.New("store: malformed id")
+	// ErrCodeTaken reports a product code another live product of the
+	// business already uses.
+	ErrCodeTaken = errors.New("store: product code taken")
 )
 
 // Classify turns a Postgres constraint failure into one of the errors above.
@@ -42,6 +48,9 @@ func Classify(err error) error {
 	}
 	switch pg.Code {
 	case pgUniqueViolation:
+		if pg.ConstraintName == productCodeIndex {
+			return ErrCodeTaken
+		}
 		return ErrDuplicate
 	case pgForeignKeyViolation:
 		return ErrRelatedMissing

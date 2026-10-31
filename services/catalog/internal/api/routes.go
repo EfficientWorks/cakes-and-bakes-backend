@@ -18,6 +18,8 @@ func MountStorefront(sf chi.Router, h *Handler) {
 	sf.Get("/content", h.GetContent)
 	sf.Get("/coupons", h.ListStorefrontCoupons)
 	sf.Get("/seasonal-tags", h.StorefrontSeasonalTags)
+	// Public: a guest sending the Custom Orders form uploads photos first.
+	sf.Post("/uploads/cake-photo", h.UploadCustomerPhoto)
 }
 
 /*

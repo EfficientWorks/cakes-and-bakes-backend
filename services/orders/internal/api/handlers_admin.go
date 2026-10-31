@@ -579,6 +579,9 @@ type manualOrderItemJSON struct {
 	PresentationID *string  `json:"selectedPresentationId"`
 	WrapColourID   *string  `json:"selectedWrapColourId"`
 	Quantity       int      `json:"quantity"`
+	// The message piped on the cake; optional for staff even when the
+	// product requires one, but still limited to its length.
+	CakeMessage *string `json:"cakeMessage"`
 }
 
 type createManualOrderRequestJSON struct {
@@ -629,6 +632,7 @@ func (h *Handler) CreateManualOrder(w http.ResponseWriter, r *http.Request) {
 		items = append(items, domain.ManualOrderItemRequest{
 			ProductID: i.ProductID, VariantID: i.VariantID, FlavourIDs: i.FlavourIDs, AddonIDs: i.AddonIDs,
 			PresentationID: i.PresentationID, WrapColourID: i.WrapColourID, Quantity: i.Quantity,
+			CakeMessage: i.CakeMessage,
 		})
 	}
 

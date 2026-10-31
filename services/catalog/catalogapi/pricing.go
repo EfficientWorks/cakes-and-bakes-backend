@@ -26,4 +26,8 @@ type PricedItem struct {
 	SelectedAddons       []SelectedModifier
 	SelectedPresentation *SelectedModifier
 	SelectedWrapColour   *SelectedModifier
+
+	// Cake is the product's message-on-cake and photo settings, which a cart
+	// line's cakeMessage and photoUrl are validated against.
+	Cake CakeOptions
 }

@@ -224,7 +224,12 @@ func unresolvedAvailability() catalogapi.Availability {
 // StorefrontFacets describes the filter panel: which chips to offer and where
 // the price slider starts and ends.
 type StorefrontFacets struct {
-	Occasions     []string
+	Occasions []string
+	// Categories is every active category, zero counts included.
+	Categories []store.CategoryCount
+	// Colours and Sponges are every allowed value with its product count.
+	Colours       []OptionCount
+	Sponges       []OptionCount
 	Tags          []catalogapi.SeasonalTag
 	Dietary       []string
 	MinPriceCents int64
@@ -246,13 +251,40 @@ func (s *Service) Facets(ctx context.Context) (*StorefrontFacets, error) {
 	if err != nil {
 		return nil, apperr.Internal(err)
 	}
+	categories, err := s.store.CategoryCounts(ctx)
+	if err != nil {
+		return nil, apperr.Internal(err)
+	}
+	colourCounts, spongeCounts, err := s.store.OptionCounts(ctx)
+	if err != nil {
+		return nil, apperr.Internal(err)
+	}
 	return &StorefrontFacets{
 		Occasions:     strx.OrEmptySlice(occasions),
 		Tags:          tags,
 		Dietary:       strx.OrEmptySlice(dietary),
 		MinPriceCents: minCents,
 		MaxPriceCents: maxCents,
+		Categories:    categories,
+		Colours:       optionCounts(catalogapi.ProductColours, colourCounts),
+		Sponges:       optionCounts(catalogapi.ProductSponges, spongeCounts),
 	}, nil
+}
+
+// OptionCount is one colour or sponge chip and how many products carry it.
+type OptionCount struct {
+	Value string
+	Count int
+}
+
+// optionCounts lists every allowed value in its canonical order, zero counts
+// included, so the panel is stable as products change.
+func optionCounts(allowed []string, counts map[string]int) []OptionCount {
+	out := make([]OptionCount, 0, len(allowed))
+	for _, v := range allowed {
+		out = append(out, OptionCount{Value: v, Count: counts[v]})
+	}
+	return out
 }
 
 // nonEmpty drops blank entries so a missing query parameter does not become a

@@ -170,7 +170,8 @@ func (s *Repo) listOrderItemsFor(ctx context.Context, orderIDs []string) (map[st
 		       COALESCE(p.min_prep_time, 0), COALESCE(p.min_prep_time_unit, 'minutes'),
 		       COALESCE(p.max_prep_time, 0), COALESCE(p.max_prep_time_unit, 'minutes'),
 		       COALESCE(pc.id::text, ''), COALESCE(pc.name, ''),
-		       oi.gift_message, oi.gift_reason
+		       oi.gift_message, oi.gift_reason,
+		       oi.cake_message, oi.photo_urls
 		  FROM order_items oi
 		  LEFT JOIN products p ON p.id = oi.product_id
 		  LEFT JOIN product_categories pc ON pc.id = p.category_id
@@ -191,7 +192,7 @@ func (s *Repo) listOrderItemsFor(ctx context.Context, orderIDs []string) (map[st
 			&i.KOTStatus, &i.KOTStartedAt, &i.KOTReadyAt,
 			&i.MinPrepTime, &i.MinPrepTimeUnit, &i.MaxPrepTime, &i.MaxPrepTimeUnit,
 			&i.CategoryID, &i.CategoryName,
-			&i.GiftMessage, &i.GiftReason); err != nil {
+			&i.GiftMessage, &i.GiftReason, &i.CakeMessage, &i.PhotoURLs); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal(flavoursRaw, &i.SelectedFlavours)

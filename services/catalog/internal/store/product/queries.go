@@ -11,7 +11,8 @@ const productSelect = `
 	        OR EXISTS (SELECT 1 FROM modifier_groups mg WHERE mg.product_id = p.id)) AS is_modifier,
 	       p.show_on_pos, p.show_on_website, p.pricing_mode,
 	       p.min_prep_time, p.min_prep_time_unit, p.max_prep_time, p.max_prep_time_unit,
-	       p.video_url
+	       p.video_url,
+	       p.code, p.colours, p.sponges, p.cake_message_mode, p.cake_message_max_length, p.cake_message_presets
 	FROM products p JOIN product_categories c ON c.id = p.category_id
 	WHERE p.deleted_at IS NULL`
 

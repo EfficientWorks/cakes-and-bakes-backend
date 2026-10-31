@@ -82,7 +82,7 @@ func (s *Repo) ListProductsAdminPage(ctx context.Context, q AdminProductQuery) (
 	}
 	if q.Search != "" {
 		args = append(args, "%"+q.Search+"%")
-		where += fmt.Sprintf(" AND (p.name ILIKE $%d OR p.slug ILIKE $%d)", len(args), len(args))
+		where += fmt.Sprintf(" AND (p.name ILIKE $%d OR p.slug ILIKE $%d OR p.code ILIKE $%d)", len(args), len(args), len(args))
 	}
 	if q.ShowOnPos != nil {
 		args = append(args, *q.ShowOnPos)
@@ -144,4 +144,20 @@ func (s *Repo) ListProductsAdminPage(ctx context.Context, q AdminProductQuery) (
 		}
 	}
 	return out, total, nil
+}
+
+// ProductCodeTaken reports whether another live product of the business uses
+// code (already normalised). excludeID is the product being edited, or "".
+func (s *Repo) ProductCodeTaken(ctx context.Context, code, excludeID string) (bool, error) {
+	var taken bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM products
+		                WHERE deleted_at IS NULL AND upper(code) = upper($2)
+		                  AND business_id IS NOT DISTINCT FROM $1
+		                  AND ($3 = '' OR id::text <> $3))`,
+		tenant.BusinessParam(ctx), code, excludeID).Scan(&taken)
+	if err != nil {
+		return false, fmt.Errorf("check product code: %w", err)
+	}
+	return taken, nil
 }

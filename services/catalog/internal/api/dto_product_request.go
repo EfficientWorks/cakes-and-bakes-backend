@@ -108,6 +108,18 @@ type productRequest struct {
 
 	StorePrices []StorePricesRequest `json:"storePrices"`
 	BranchIds   []string             `json:"storeIds"`
+
+	// Product code, trimmed and upper-cased; unique per business; max 32.
+	Code string `json:"code" example:"WPC-040"`
+	// Colours and sponges from the allowed lists (case-insensitive).
+	Colours []string `json:"colours"`
+	Sponges []string `json:"sponges"`
+	// off (default) | optional | required.
+	CakeMessageMode string `json:"cakeMessageMode" example:"optional"`
+	// 1–200 characters; default 40.
+	CakeMessageMaxLength int `json:"cakeMessageMaxLength" example:"40"`
+	// Omit for the default chips; [] for none.
+	CakeMessagePresets []string `json:"cakeMessagePresets"`
 }
 
 func productFromRequest(req productRequest) catalogapi.Product {
@@ -130,6 +142,10 @@ func productFromRequest(req productRequest) catalogapi.Product {
 		AvailableFrom:  parseAdminDatePtr(req.AvailableFrom),
 		AvailableUntil: parseAdminDatePtr(req.AvailableUntil),
 		BranchIds:      req.BranchIds,
+		Code:           strx.NilIfEmpty(strings.TrimSpace(req.Code)),
+		Colours:        req.Colours, Sponges: req.Sponges,
+		CakeMessageMode: req.CakeMessageMode, CakeMessageMaxLength: req.CakeMessageMaxLength,
+		CakeMessagePresets: req.CakeMessagePresets,
 	}
 	for _, img := range req.Images {
 		p.Images = append(p.Images, catalogapi.ProductImage{URL: img.URL, AltText: strx.NilIfEmpty(img.AltText), Type: strx.OrDefault(img.Type, catalogapi.ImageStudio), SortOrder: img.SortOrder, IsPrimary: img.IsPrimary})
@@ -215,6 +231,13 @@ type productPatchRequest struct {
 	ModifierGroups *[]modifierGroupRequest `json:"modifierGroups"`
 	BranchIds      *[]string               `json:"storeIds"`
 	StorePrices    *[]StorePricesRequest   `json:"storePrices"`
+	// Omit to keep; "" removes the code.
+	Code                 *string   `json:"code"`
+	Colours              *[]string `json:"colours"`
+	Sponges              *[]string `json:"sponges"`
+	CakeMessageMode      *string   `json:"cakeMessageMode"`
+	CakeMessageMaxLength *int      `json:"cakeMessageMaxLength"`
+	CakeMessagePresets   *[]string `json:"cakeMessagePresets"`
 }
 
 func productPatchFromRequest(req productPatchRequest) (catalogapi.ProductPatch, error) {
@@ -231,6 +254,9 @@ func productPatchFromRequest(req productPatchRequest) (catalogapi.ProductPatch, 
 		SortOrder: req.SortOrder, PriceFloorCents: req.PriceFloorCents,
 		PriceCeilingCents: req.PriceCeilingCents,
 		BranchIds:         req.BranchIds,
+		Code:              req.Code, Colours: req.Colours, Sponges: req.Sponges,
+		CakeMessageMode: req.CakeMessageMode, CakeMessageMaxLength: req.CakeMessageMaxLength,
+		CakeMessagePresets: req.CakeMessagePresets,
 	}
 
 	// Either end being present means the caller is talking about scheduling,

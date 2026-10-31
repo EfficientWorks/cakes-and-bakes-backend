@@ -260,6 +260,13 @@ definitions:
         type: string
       name:
         type: string
+      orderId:
+        description: |-
+          OrderID and OrderReference name the order a custom-order enquiry
+          created (price to be confirmed, unpaid). Also kept in details.
+        type: string
+      orderReference:
+        type: string
       phone:
         type: string
       staffNote:
@@ -1324,6 +1331,17 @@ definitions:
       status:
         type: string
     type: object
+  services_catalog_internal_api.customerPhotoDTO:
+    properties:
+      id:
+        description: The upload id; send it (or url) back as a photo reference.
+        example: 9f2c4e0a6b1d4c3e8f7a6b5c4d3e2f1a
+        type: string
+      url:
+        description: Where the photo is served from.
+        example: https://api.example.com/v1/media/9f2c4e0a6b1d4c3e8f7a6b5c4d3e2f1a
+        type: string
+    type: object
   services_catalog_internal_api.dateOverrideRequest:
     properties:
       available:
@@ -1333,8 +1351,48 @@ definitions:
       reason:
         type: string
     type: object
+  services_catalog_internal_api.facetCategoryDTO:
+    properties:
+      count:
+        description: Live website products in the category, before any other filter.
+        example: 12
+        type: integer
+      id:
+        type: string
+      imageUrl:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+      sortOrder:
+        type: integer
+    type: object
+  services_catalog_internal_api.facetOptionDTO:
+    properties:
+      count:
+        example: 7
+        type: integer
+      value:
+        example: Pink
+        type: string
+    type: object
   services_catalog_internal_api.facetsDTOType:
     properties:
+      categories:
+        description: |-
+          Every active category in the admin's order, with its count of live
+          website products — categories with none are included (count 0).
+        items:
+          $ref: '#/definitions/services_catalog_internal_api.facetCategoryDTO'
+        type: array
+      colours:
+        description: |-
+          Every allowed colour and sponge, in a fixed order, with product counts
+          (0 included). Filter with ?colour= and ?sponge=.
+        items:
+          $ref: '#/definitions/services_catalog_internal_api.facetOptionDTO'
+        type: array
       dietary:
         items:
           type: string
@@ -1352,6 +1410,10 @@ definitions:
       sorts:
         items:
           $ref: '#/definitions/services_catalog_internal_api.sortOptionDTO'
+        type: array
+      sponges:
+        items:
+          $ref: '#/definitions/services_catalog_internal_api.facetOptionDTO'
         type: array
       tags:
         description: Seasonal tag chips (active tags with products); filter with ?tag=<id>.
@@ -1535,9 +1597,31 @@ definitions:
         type: string
       basePrice:
         type: integer
+      cakeMessageMaxLength:
+        example: 40
+        type: integer
+      cakeMessageMode:
+        description: |-
+          Message on the cake: off | optional | required, the limit in
+          characters, and the chips to offer.
+        example: optional
+        type: string
+      cakeMessagePresets:
+        items:
+          type: string
+        type: array
       categorySlug:
         description: Variants     []variantDTOType    `json:"variants"`
         type: string
+      code:
+        description: The shop's product code ("WPC-040"); null when none.
+        example: WPC-040
+        type: string
+      colours:
+        description: Filter values, from the allowed lists in /storefront/product-filters.
+        items:
+          type: string
+        type: array
       description:
         type: string
       id:
@@ -1599,6 +1683,10 @@ definitions:
         type: boolean
       slug:
         type: string
+      sponges:
+        items:
+          type: string
+        type: array
       storeIds:
         items:
           type: string
@@ -1655,8 +1743,31 @@ definitions:
         type: string
       basePriceCents:
         type: integer
+      cakeMessageMaxLength:
+        description: 1–200 characters; default 40.
+        example: 40
+        type: integer
+      cakeMessageMode:
+        description: off (default) | optional | required.
+        example: optional
+        type: string
+      cakeMessagePresets:
+        description: Omit for the default chips; [] for none.
+        items:
+          type: string
+        type: array
       categoryId:
         type: string
+      code:
+        description: Product code, trimmed and upper-cased; unique per business; max
+          32.
+        example: WPC-040
+        type: string
+      colours:
+        description: Colours and sponges from the allowed lists (case-insensitive).
+        items:
+          type: string
+        type: array
       description:
         type: string
       dietaryFlags:
@@ -1731,6 +1842,10 @@ definitions:
         type: string
       sortOrder:
         type: integer
+      sponges:
+        items:
+          type: string
+        type: array
       storeIds:
         items:
           type: string
@@ -1900,6 +2015,29 @@ definitions:
         type: string
       branchId:
         type: string
+      cakeMessage:
+        description: What the cake should say, at most 40 characters.
+        example: Happy 30th Priya
+        type: string
+      cakeSize:
+        example: 8 inch, two tier
+        type: string
+      date:
+        example: "2026-11-14"
+        type: string
+      deliveryCity:
+        type: string
+      deliveryPostcode:
+        example: E6 1AB
+        type: string
+      deliveryStreet:
+        description: |-
+          Delivery address, for fulfilmentType delivery (street falls back to
+          eventLocation).
+        type: string
+      designNotes:
+        example: Pink and gold, fresh flowers
+        type: string
       email:
         type: string
       eventDate:
@@ -1913,12 +2051,40 @@ definitions:
       eventType:
         example: baby_shower
         type: string
+      flavour:
+        example: Red Velvet
+        type: string
+      fulfilmentType:
+        description: |-
+          The order created with the enquiry (all optional, backward compatible).
+          date (YYYY-MM-DD) is the day it is needed; without it eventDate is
+          used, and with neither parseable only the enquiry is recorded.
+        example: pickup
+        type: string
       guestCount:
         example: 40
         type: integer
       mobileNumber:
         type: string
       name:
+        type: string
+      photoUrls:
+        description: Up to 3 photos from POST /storefront/uploads/cake-photo (id or
+          url).
+        items:
+          type: string
+        type: array
+      servings:
+        description: Cake details, all optional free text, carried on the order line.
+        example: "30"
+        type: string
+      slotEnd:
+        example: "14:30"
+        type: string
+      slotStart:
+        description: Preferred time, "HH:MM"; slotStart defaults to eventTime, then
+          09:00.
+        example: "14:00"
         type: string
     type: object
   services_enquiries_internal_api.franchiseRequest:
@@ -2902,6 +3068,10 @@ definitions:
         type: string
       branchId:
         type: string
+      cakeMessage:
+        description: The message piped on the cake (single-item form).
+        example: Happy Birthday Amma
+        type: string
       city:
         type: string
       comments:
@@ -3129,6 +3299,12 @@ definitions:
   services_orders_internal_api.cartItemInput:
     properties:
       branchId:
+        type: string
+      cakeMessage:
+        description: |-
+          The message piped on the cake; validated against the product's
+          cakeMessageMode and cakeMessageMaxLength.
+        example: Happy Birthday Amma
         type: string
       comments:
         type: string
@@ -3483,6 +3659,12 @@ definitions:
           Which trip to the kitchen this line was on, so a ticket can show what is
           new and the screen can group by round.
         type: integer
+      cakeMessage:
+        description: |-
+          The message piped on the cake (separate from the gift message). Null
+          when none.
+        example: Happy Birthday Amma
+        type: string
       cancelTime:
         description: When the till cancelled this line. Null for a line still standing.
         type: string
@@ -3534,6 +3716,13 @@ definitions:
         type: integer
       minPrepTimeUnit:
         type: string
+      photoUrls:
+        description: |-
+          Customer photos to print on the cake (custom orders, up to 3). Always
+          an array, empty when none.
+        items:
+          type: string
+        type: array
       presentation:
         $ref: '#/definitions/services_orders_internal_api.modifierDTOType'
       productId:
@@ -3615,6 +3804,8 @@ definitions:
         $ref: '#/definitions/services_orders_internal_api.addressDTOType'
       deliveryInstructions:
         type: string
+      enquiryId:
+        type: string
       fulfilmentType:
         type: string
       giftMessage:
@@ -3626,6 +3817,11 @@ definitions:
       id:
         type: string
       isAmended:
+        type: boolean
+      isCustomOrder:
+        description: |-
+          Custom Orders form: price to be confirmed (total 0), unpaid. source
+          is "custom_order" then, else null.
         type: boolean
       isGift:
         type: boolean
@@ -3680,6 +3876,8 @@ definitions:
         type: string
       slotStartAt:
         type: string
+      source:
+        type: string
       stage:
         description: active | ready | fulfilled | cancelled — which rail the ticket
           sits on.
@@ -3710,6 +3908,11 @@ definitions:
     type: object
   services_orders_internal_api.manualOrderItemJSON:
     properties:
+      cakeMessage:
+        description: |-
+          The message piped on the cake; optional for staff even when the
+          product requires one, but still limited to its length.
+        type: string
       productId:
         type: string
       quantity:
@@ -3832,6 +4035,8 @@ definitions:
         type: string
       endTime:
         type: string
+      enquiryId:
+        type: string
       fulfilmentType:
         type: string
       giftMessage:
@@ -3859,6 +4064,12 @@ definitions:
       id:
         type: string
       isAmended:
+        type: boolean
+      isCustomOrder:
+        description: |-
+          True for an order created from the Custom Orders form: price to be
+          confirmed (total 0) and unpaid. source is "custom_order" then, else
+          null; enquiryId is the enquiry it came from.
         type: boolean
       isGift:
         type: boolean
@@ -3959,6 +4170,8 @@ definitions:
         type: string
       slotStart:
         type: string
+      source:
+        type: string
       splitMode:
         description: How the bill was split (amount, item, custom), or null if it
           was not.
@@ -4002,6 +4215,12 @@ definitions:
           Which trip to the kitchen this line was on, so a ticket can show what is
           new and the screen can group by round.
         type: integer
+      cakeMessage:
+        description: |-
+          The message piped on the cake (separate from the gift message). Null
+          when none.
+        example: Happy Birthday Amma
+        type: string
       cancelTime:
         description: When the till cancelled this line. Null for a line still standing.
         type: string
@@ -4037,6 +4256,13 @@ definitions:
         type: string
       lineTotalCents:
         type: integer
+      photoUrls:
+        description: |-
+          Customer photos to print on the cake (custom orders, up to 3). Always
+          an array, empty when none.
+        items:
+          type: string
+        type: array
       presentation:
         $ref: '#/definitions/services_orders_internal_api.modifierDTOType'
       productId:
@@ -4208,6 +4434,9 @@ definitions:
       id:
         type: string
       isAmended:
+        type: boolean
+      isCustomOrder:
+        description: 'Custom Orders form order: price to be confirmed, unpaid.'
         type: boolean
       itemCount:
         type: integer
@@ -4935,6 +5164,18 @@ definitions:
         type: integer
       deliveryMessage:
         type: string
+      deliveryMinimumCents:
+        description: |-
+          The store's minimum item subtotal for delivery (0 = no minimum) and
+          how much more the basket needs (0 once reached). Below the minimum a
+          delivery cart has deliveryAvailable false and deliveryMessage
+          "Orders under £50 are collection only. Add £18.01 more to unlock local
+          delivery." Reported for pickup carts too, so the basket can say it.
+        example: 5000
+        type: integer
+      deliveryShortfallCents:
+        example: 1801
+        type: integer
       discount:
         type: integer
       discountPct:
@@ -5201,6 +5442,9 @@ definitions:
     type: object
   services_orders_internal_api.updateCartItemRequest:
     properties:
+      cakeMessage:
+        description: Omit to keep the message on the cake; "" clears it.
+        type: string
       giftMessage:
         type: string
       isGift:
@@ -10559,9 +10803,12 @@ paths:
     post:
       consumes:
       - application/json
-      description: The "Need a Custom Order?" form. Requires a store location — the
-        enquiry is routed to that branch and inherits its franchise. Submitting this
-        only starts a conversation; bookings are confirmed by phone.
+      description: 'The "Need a Custom Order?" form. Requires a store location — the
+        enquiry is routed to that branch. When a date is given (date, else a YYYY-MM-DD
+        eventDate) it also creates an order for that store and day: source custom_order,
+        total 0 (price to be confirmed), unpaid, carrying cakeMessage (max 40) and
+        up to 3 photoUrls from /storefront/uploads/cake-photo. The response is the
+        enquiry with orderId and orderReference.'
       parameters:
       - description: Enquiry
         in: body
@@ -14639,13 +14886,24 @@ paths:
         in: query
         name: date
         type: string
-      - description: Partial match on product name and description
+      - description: Partial match on product name, description and product code
         in: query
         name: search
         type: string
-      - description: Category tab
+      - description: Category ids; repeated or comma-separated. Matches ANY (one id
+          = the old single tab)
         in: query
         name: categoryId
+        type: string
+      - description: Colours (Pink, Blue, ...); repeated or comma-separated. Matches
+          ANY
+        in: query
+        name: colour
+        type: string
+      - description: Sponges (Chocolate, Vanilla, ...); repeated or comma-separated.
+          Matches ANY; ANDed with colour
+        in: query
+        name: sponge
         type: string
       - description: Occasion tags; repeated or comma-separated. Matches ANY
         in: query
@@ -14969,6 +15227,47 @@ paths:
           schema:
             $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
       summary: List bookable delivery or pickup slots
+      tags:
+      - storefront
+  /storefront/uploads/cake-photo:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Public. Send the image either as multipart/form-data (field "file")
+        or as the raw request body with an image Content-Type. JPEG, PNG or WebP only
+        (HEIC and others are refused), at most 10 MB; large images are scaled to 1600
+        px on the longest side. Rate limited per IP (20 an hour). Returns the id and
+        url to attach to a custom order (photoUrls).
+      parameters:
+      - description: The image (multipart)
+        in: formData
+        name: file
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_catalog_internal_api.customerPhotoDTO'
+              type: object
+        "400":
+          description: UNSUPPORTED_IMAGE_TYPE or IMAGE_TOO_LARGE or VALIDATION_FAILED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "429":
+          description: RATE_LIMITED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "503":
+          description: IMAGE_STORAGE_NOT_CONFIGURED
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      summary: Upload a customer cake photo
       tags:
       - storefront
   /storefront/zone-coverage-notify:

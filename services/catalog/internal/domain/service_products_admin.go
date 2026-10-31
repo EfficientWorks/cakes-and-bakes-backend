@@ -18,6 +18,12 @@ func (s *Service) CreateProduct(ctx context.Context, claims *auth.StaffClaims, p
 	if !tenant.HasPermission(claims, tenant.PermCatalogueEditMaster) {
 		return nil, apperr.PermissionDenied("Only super admin can edit the master catalogue.")
 	}
+	if err := normaliseProductOptions(&p); err != nil {
+		return nil, err
+	}
+	if err := s.checkProductCode(ctx, p.Code, ""); err != nil {
+		return nil, err
+	}
 	if err := validateProduct(p); err != nil {
 		return nil, err
 	}
@@ -46,6 +52,8 @@ func (s *Service) CreateProduct(ctx context.Context, claims *auth.StaffClaims, p
 // id at all.
 func productWriteError(err error, slug string) error {
 	switch {
+	case errors.Is(err, store.ErrCodeTaken):
+		return errCodeTaken()
 	case errors.Is(err, store.ErrDuplicate):
 		return apperr.New("PRODUCT_SLUG_TAKEN", apperr.CategoryConflict,
 			"A product already uses the web address \""+slug+"\". Change the name or the slug.").
@@ -82,6 +90,12 @@ func (s *Service) UpdateProduct(ctx context.Context, claims *auth.StaffClaims, i
 		return nil, notFoundOrInternal(err, "Product not found.")
 	}
 	p := patch.Apply(*before)
+	if err := normaliseProductOptions(&p); err != nil {
+		return nil, err
+	}
+	if err := s.checkProductCode(ctx, p.Code, id); err != nil {
+		return nil, err
+	}
 	if err := validateProduct(p); err != nil {
 		return nil, err
 	}

@@ -49,6 +49,12 @@ type orderItemDTOType struct {
 	// This line's gift message and occasion. Null when none.
 	GiftMessage *string `json:"giftMessage"`
 	GiftReason  *string `json:"giftReason"`
+	// The message piped on the cake (separate from the gift message). Null
+	// when none.
+	CakeMessage *string `json:"cakeMessage" example:"Happy Birthday Amma"`
+	// Customer photos to print on the cake (custom orders, up to 3). Always
+	// an array, empty when none.
+	PhotoURLs []string `json:"photoUrls"`
 }
 
 func orderItemDTO(i *ordersapi.OrderItem) orderItemDTOType {
@@ -73,6 +79,8 @@ func orderItemDTO(i *ordersapi.OrderItem) orderItemDTOType {
 		KotReadyAt:       fmtTimePtr(i.KOTReadyAt),
 		GiftMessage:      i.GiftMessage,
 		GiftReason:       i.GiftReason,
+		CakeMessage:      i.CakeMessage,
+		PhotoURLs:        orEmptyStrings(i.PhotoURLs),
 	}
 }
 
@@ -125,6 +133,13 @@ type orderDTOType struct {
 	DeliveryAddressType  *string         `json:"deliveryAddressType"`
 	PhotoOnDelivery      bool            `json:"photoOnDelivery"`
 	SurpriseDelivery     bool            `json:"surpriseDelivery"`
+
+	// True for an order created from the Custom Orders form: price to be
+	// confirmed (total 0) and unpaid. source is "custom_order" then, else
+	// null; enquiryId is the enquiry it came from.
+	IsCustomOrder bool    `json:"isCustomOrder"`
+	Source        *string `json:"source"`
+	EnquiryID     *string `json:"enquiryId"`
 
 	ScheduledDate string `json:"scheduledDate"`
 	SlotStart     string `json:"slotStart"`
@@ -374,6 +389,7 @@ func orderDTO(o *ordersapi.Order) orderDTOType {
 		DeliveryInstructions: o.DeliveryInstructions,
 		BusinessName:         o.BusinessName, DeliveryAddressType: o.DeliveryAddressType,
 		PhotoOnDelivery: o.PhotoOnDelivery, SurpriseDelivery: o.SurpriseDelivery,
+		IsCustomOrder: o.IsCustomOrder(), Source: o.Source, EnquiryID: o.EnquiryID,
 		ScheduledDate: o.ScheduledDate.Format(dateFmt), SlotStart: o.SlotStart, SlotEnd: o.SlotEnd,
 		Summary: priceSummaryDTO(&ordersapi.PriceSummary{
 			SubtotalCents: o.SubtotalCents, DiscountCents: o.DiscountCents, DiscountPct: discountPct,
@@ -443,4 +459,12 @@ func orderDTO(o *ordersapi.Order) orderDTOType {
 		out.Timeline = append(out.Timeline, timelineEventDTOType{Status: e.Status, At: e.CreatedAt.Format(rfc3339), Actor: actor, Note: derefStr(e.Note)})
 	}
 	return out
+}
+
+// orEmptyStrings keeps a list field an array on the wire, never null.
+func orEmptyStrings(v []string) []string {
+	if v == nil {
+		return []string{}
+	}
+	return v
 }

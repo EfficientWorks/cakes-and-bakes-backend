@@ -106,6 +106,17 @@ type productListDTOType struct {
 	AvailableUntil *string `json:"availableUntil"`
 	IsModifier     bool    `json:"isModifier"`
 
+	// The shop's product code ("WPC-040"); null when none.
+	Code *string `json:"code" example:"WPC-040"`
+	// Filter values, from the allowed lists in /storefront/product-filters.
+	Colours []string `json:"colours"`
+	Sponges []string `json:"sponges"`
+	// Message on the cake: off | optional | required, the limit in
+	// characters, and the chips to offer.
+	CakeMessageMode      string   `json:"cakeMessageMode" example:"optional"`
+	CakeMessageMaxLength int      `json:"cakeMessageMaxLength" example:"40"`
+	CakeMessagePresets   []string `json:"cakeMessagePresets"`
+
 	// MinPriceCents is the lowest possible starting price across store overrides.
 	// MaxPriceCents is the highest possible price across store overrides and modifiers.
 	// null when there are no branch price overrides for this product.
@@ -132,6 +143,10 @@ func productListDTO(p *domain.ProductWithAvailability) productListDTOType {
 		VideoURL:      p.VideoURL,
 		AvailableFrom: formatDatePtr(p.AvailableFrom), AvailableUntil: formatDatePtr(p.AvailableUntil),
 		IsModifier: p.IsModifier || len(p.ModifierGroups) > 0,
+		Code:       p.Code, Colours: orEmpty(p.Colours), Sponges: orEmpty(p.Sponges),
+		CakeMessageMode:      strx.OrDefault(p.CakeMessageMode, catalogapi.OptionOff),
+		CakeMessageMaxLength: orDefaultInt(p.CakeMessageMaxLength, catalogapi.DefaultCakeMessageMaxLength),
+		CakeMessagePresets:   orEmpty(p.CakeMessagePresets),
 	}
 	for _, img := range p.Images {
 		out.Images = append(out.Images, imageDTO(&img))
@@ -217,6 +232,13 @@ func productSummaryDTO(p *catalogapi.Product) productListDTOType {
 func orEmpty[T any](v []T) []T {
 	if v == nil {
 		return []T{}
+	}
+	return v
+}
+
+func orDefaultInt(v, def int) int {
+	if v == 0 {
+		return def
 	}
 	return v
 }

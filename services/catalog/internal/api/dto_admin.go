@@ -208,6 +208,13 @@ type adminProductDTOType struct {
 	AvailableFrom     *string              `json:"availableFrom"`
 	AvailableUntil    *string              `json:"availableUntil"`
 	IsModifier        bool                 `json:"isModifier"`
+	Code              *string              `json:"code"`
+	Colours           []string             `json:"colours"`
+	Sponges           []string             `json:"sponges"`
+	// Message on the cake: off | optional | required.
+	CakeMessageMode      string   `json:"cakeMessageMode"`
+	CakeMessageMaxLength int      `json:"cakeMessageMaxLength"`
+	CakeMessagePresets   []string `json:"cakeMessagePresets"`
 
 	Images         []imageDTOType          `json:"images"`
 	Variants       []variantDTOType        `json:"variants,omitempty"`
@@ -299,7 +306,11 @@ func adminProductDTO(p *catalogapi.Product) adminProductDTOType {
 		IsBestSeller: p.IsBestSeller, IsActive: p.IsActive, ShowOnPos: p.ShowOnPos, ShowOnWebsite: p.ShowOnWebsite, SortOrder: p.SortOrder,
 		PriceFloorCents: p.PriceFloorCents, PriceCeilingCents: p.PriceCeilingCents,
 		AvailableFrom: formatDatePtr(p.AvailableFrom), AvailableUntil: formatDatePtr(p.AvailableUntil),
-		IsModifier: p.IsModifier || len(p.ModifierGroups) > 0,
-		Images:     images, ModifierGroups: groups, StorePrices: spPtr, BranchIds: bIdsPtr,
+		Code: p.Code, Colours: orEmpty(p.Colours), Sponges: orEmpty(p.Sponges),
+		CakeMessageMode:      strx.OrDefault(p.CakeMessageMode, catalogapi.OptionOff),
+		CakeMessageMaxLength: orDefaultInt(p.CakeMessageMaxLength, catalogapi.DefaultCakeMessageMaxLength),
+		CakeMessagePresets:   orEmpty(p.CakeMessagePresets),
+		IsModifier:           p.IsModifier || len(p.ModifierGroups) > 0,
+		Images:               images, ModifierGroups: groups, StorePrices: spPtr, BranchIds: bIdsPtr,
 	}
 }

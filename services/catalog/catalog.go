@@ -12,6 +12,7 @@ import (
 
 	"bakehouse/pkg/audit"
 	"bakehouse/pkg/media"
+	"bakehouse/pkg/ratelimit"
 	"bakehouse/services/catalog/catalogapi"
 	"bakehouse/services/catalog/internal/api"
 	"bakehouse/services/catalog/internal/domain"
@@ -53,6 +54,12 @@ func (m *Module) Coupons() catalogapi.CouponPricer { return m.svc }
 
 // TagRestrictions is the seasonal tags' restricted dates, for orders.
 func (m *Module) TagRestrictions() catalogapi.TagRestrictions { return m.svc }
+
+// UseLimiter throttles public customer-photo uploads per IP.
+func (m *Module) UseLimiter(l *ratelimit.Limiter) { m.handler.UseLimiter(l) }
+
+// CustomerPhotos lets orders check a photo url is one a customer uploaded here.
+func (m *Module) CustomerPhotos() catalogapi.CustomerPhotos { return m.svc }
 
 // MountStorefront attaches the public catalogue endpoints.
 func (m *Module) MountStorefront(r chi.Router) { api.MountStorefront(r, m.handler) }

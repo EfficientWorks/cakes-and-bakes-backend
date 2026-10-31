@@ -90,13 +90,13 @@ func (s *Repo) AddCartItem(ctx context.Context, item ordersapi.CartItem) (*order
 	const q = `
 		INSERT INTO cart_items (cart_id, product_id, product_name, variant_id, variant_name, unit_price_cents, quantity,
 			selected_flavours, selected_addons, selected_presentation, selected_wrap_colour,
-			is_gift, recipient_first_name, recipient_last_name, gift_message)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+			is_gift, recipient_first_name, recipient_last_name, gift_message, cake_message)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NULLIF($16, ''))
 		RETURNING id`
 	var id string
 	err := s.pool.QueryRow(ctx, q, item.CartID, item.ProductID, item.ProductName, item.VariantID, item.VariantName,
 		item.UnitPriceCents, item.Quantity, flavours, addons, pres, wrap, item.IsGift,
-		item.RecipientFirstName, item.RecipientLastName, item.GiftMessage).Scan(&id)
+		item.RecipientFirstName, item.RecipientLastName, item.GiftMessage, item.CakeMessage).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (s *Repo) AddCartItem(ctx context.Context, item ordersapi.CartItem) (*order
  * resolved and re-priced by the service before they get here, so by this point
  * they are always the full intended set.
  */
-func (s *Repo) UpdateCartItem(ctx context.Context, cartID, itemID string, quantity int, flavours, addons []ordersapi.SelectedModifier, presentation, wrap *ordersapi.SelectedModifier, isGift *bool, recipientFirst, recipientLast, giftMessage *string) error {
+func (s *Repo) UpdateCartItem(ctx context.Context, cartID, itemID string, quantity int, flavours, addons []ordersapi.SelectedModifier, presentation, wrap *ordersapi.SelectedModifier, isGift *bool, recipientFirst, recipientLast, giftMessage, cakeMessage *string) error {
 	flavoursJSON, _ := json.Marshal(flavours)
 	addonsJSON, _ := json.Marshal(addons)
 	presJSON, _ := json.Marshal(presentation)
@@ -133,9 +133,10 @@ func (s *Repo) UpdateCartItem(ctx context.Context, cartID, itemID string, quanti
 			recipient_first_name=NULLIF(COALESCE($9, recipient_first_name), ''),
 			recipient_last_name=NULLIF(COALESCE($10, recipient_last_name), ''),
 			gift_message=NULLIF(COALESCE($11, gift_message), ''),
+			cake_message=NULLIF(COALESCE($12, cake_message), ''),
 			updated_at=NOW()
 		WHERE id = $1 AND cart_id = $2`,
-		itemID, cartID, quantity, flavoursJSON, addonsJSON, presJSON, wrapJSON, isGift, recipientFirst, recipientLast, giftMessage)
+		itemID, cartID, quantity, flavoursJSON, addonsJSON, presJSON, wrapJSON, isGift, recipientFirst, recipientLast, giftMessage, cakeMessage)
 	if err != nil {
 		return err
 	}

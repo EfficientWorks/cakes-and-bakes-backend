@@ -55,6 +55,9 @@ type cartItemInput struct {
 		LastName  string `json:"lastName"`
 	} `json:"recipient,omitempty"`
 	GiftMessage *string `json:"giftMessage,omitempty"`
+	// The message piped on the cake; validated against the product's
+	// cakeMessageMode and cakeMessageMaxLength.
+	CakeMessage *string `json:"cakeMessage,omitempty" example:"Happy Birthday Amma"`
 	Comments    string  `json:"comments,omitempty"`
 }
 
@@ -91,6 +94,8 @@ type addCartItemRequest struct {
 		LastName  string `json:"lastName"`
 	} `json:"recipient,omitempty"`
 	GiftMessage *string `json:"giftMessage,omitempty"`
+	// The message piped on the cake (single-item form).
+	CakeMessage *string `json:"cakeMessage,omitempty" example:"Happy Birthday Amma"`
 	Comments    string  `json:"comments,omitempty"`
 
 	// Bulk items list
@@ -138,6 +143,7 @@ func (h *Handler) AddCartItem(w http.ResponseWriter, r *http.Request) {
 				IsGift:         req.IsGift,
 				Recipient:      req.Recipient,
 				GiftMessage:    req.GiftMessage,
+				CakeMessage:    req.CakeMessage,
 				Comments:       req.Comments,
 			},
 		}
@@ -188,6 +194,7 @@ func (h *Handler) AddCartItem(w http.ResponseWriter, r *http.Request) {
 			FlavourIDs: flavourIDs, AddonIDs: addonIDs,
 			PresentationID: item.PresentationID, WrapColourID: item.WrapColourID,
 			Quantity: qty, IsGift: item.IsGift, GiftMessage: item.GiftMessage,
+			CakeMessage: item.CakeMessage,
 		}
 		if item.Recipient != nil {
 			areq.RecipientFirst, areq.RecipientLast = &item.Recipient.FirstName, &item.Recipient.LastName
@@ -264,6 +271,8 @@ type updateCartItemRequest struct {
 		LastName  string `json:"lastName"`
 	} `json:"recipient"`
 	GiftMessage *string `json:"giftMessage"`
+	// Omit to keep the message on the cake; "" clears it.
+	CakeMessage *string `json:"cakeMessage"`
 }
 
 // @Summary		Update a cart line
@@ -288,7 +297,7 @@ func (h *Handler) UpdateCartItem(w http.ResponseWriter, r *http.Request) {
 		first, last = &req.Recipient.FirstName, &req.Recipient.LastName
 	}
 	cart, summary, err := h.svc.UpdateItem(r.Context(), h.cartIdentity(r), chi.URLParam(r, "cartItemId"),
-		req.Quantity, req.FlavourIDs, req.AddonIDs, req.PresentationID, req.WrapColourID, req.IsGift, first, last, req.GiftMessage)
+		req.Quantity, req.FlavourIDs, req.AddonIDs, req.PresentationID, req.WrapColourID, req.IsGift, first, last, req.GiftMessage, req.CakeMessage)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

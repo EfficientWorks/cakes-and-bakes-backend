@@ -39,6 +39,7 @@ func (s *Service) GetPricedItem(ctx context.Context, branchID, productID string,
 			reason = *categoryRule.Reason
 		}
 		out := &catalogapi.PricedItem{
+			Cake:      product.CakeOptions(),
 			ProductID: product.ID, ProductName: product.Name, UnitPriceCents: product.BasePriceCents,
 			Available: false, AvailableReason: reason,
 		}
@@ -58,6 +59,7 @@ func (s *Service) GetPricedItem(ctx context.Context, branchID, productID string,
 			reason = *rule.Reason
 		}
 		out := &catalogapi.PricedItem{
+			Cake:      product.CakeOptions(),
 			ProductID: product.ID, ProductName: product.Name, UnitPriceCents: product.BasePriceCents,
 			Available: false, AvailableReason: reason,
 		}
@@ -97,6 +99,7 @@ func (s *Service) GetPricedItem(ctx context.Context, branchID, productID string,
 	}
 
 	out := &catalogapi.PricedItem{
+		Cake:      product.CakeOptions(),
 		ProductID: product.ID, ProductName: product.Name, UnitPriceCents: basePrice,
 		PricingMode: product.EffectivePricingMode(),
 		Available:   avail.Available, AvailableReason: avail.Reason,

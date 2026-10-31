@@ -50,7 +50,8 @@ const SelectSQL = `
 	             FROM order_status_events e
 	            WHERE e.order_id = orders.id AND e.status = 'cancelled'
 	            ORDER BY e.created_at DESC LIMIT 1) END AS cancellation,
-	       business_id
+	       business_id,
+	       source, enquiry_id::text
 	FROM ` + liveOrders
 
 /*

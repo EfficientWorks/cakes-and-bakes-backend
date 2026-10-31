@@ -30,6 +30,8 @@ type cartItemDTOType struct {
 	Restriction *itemRestrictionDTOType `json:"restriction"`
 	Recipient   *recipientDTOType       `json:"recipient,omitempty"`
 	GiftMessage *string                 `json:"giftMessage"`
+	// The message piped on the cake; null when none.
+	CakeMessage *string `json:"cakeMessage"`
 }
 
 type recipientDTOType struct {
@@ -45,6 +47,7 @@ func cartItemDTO(i *ordersapi.CartItem) cartItemDTOType {
 		Presentation: modDTOPtr(i.SelectedPresentation), WrapColour: modDTOPtr(i.SelectedWrapColour),
 		Quantity: i.Quantity, UnitPrice: i.UnitPriceCents, LineTotal: i.LineTotalCents(),
 		IsGift: i.IsGift, Available: i.Available, GiftMessage: i.GiftMessage,
+		CakeMessage: i.CakeMessage,
 	}
 	if i.RecipientFirstName != nil || i.RecipientLastName != nil {
 		out.Recipient = &recipientDTOType{FirstName: i.RecipientFirstName, LastName: i.RecipientLastName}

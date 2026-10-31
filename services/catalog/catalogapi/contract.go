@@ -5,8 +5,21 @@ package catalogapi
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+// CustomerPhotos resolves the photo a customer uploaded for a photo cake
+// (POST /storefront/uploads/cake-photo). A cart line may only carry a photo
+// this server stored, never an arbitrary URL.
+type CustomerPhotos interface {
+	// ResolveCustomerPhoto takes an upload id or the url the upload returned
+	// and gives back the stored url, or ErrCustomerPhotoNotFound.
+	ResolveCustomerPhoto(ctx context.Context, ref string) (string, error)
+}
+
+// ErrCustomerPhotoNotFound: the reference names no customer upload.
+var ErrCustomerPhotoNotFound = errors.New("customer photo not found")
 
 // Pricer resolves and prices one cart line from customer-selected ids,
 // confirming every id exists, is active, and belongs to the right

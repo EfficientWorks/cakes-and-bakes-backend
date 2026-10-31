@@ -76,6 +76,12 @@ func (s *Service) ValidateCart(ctx context.Context, id CartIdentity, expect *Val
 		 * the "new" price by adding the deltas a second time, so a $82 bouquet
 		 * was reported as having changed to $88. Neither number had moved.
 		 */
+		if _, err := cakeMessageFor(priced.cake, item.CakeMessage, !id.isManualCart()); err != nil {
+			result.Valid = false
+			result.Warnings = append(result.Warnings, ValidationWarning{
+				Type: "CAKE_MESSAGE_INVALID", Message: item.ProductName + ": " + apperrMessage(err),
+			})
+		}
 		if priced.unitPriceCents != item.UnitTotalCents() {
 			result.Valid = false
 			result.Warnings = append(result.Warnings, ValidationWarning{
@@ -136,7 +142,11 @@ func (s *Service) ValidateCart(ctx context.Context, id CartIdentity, expect *Val
 			if msg == "" {
 				msg = "This store doesn't deliver to that address."
 			}
-			result.Warnings = append(result.Warnings, ValidationWarning{Type: "DELIVERY_UNAVAILABLE", Message: msg})
+			warning := "DELIVERY_UNAVAILABLE"
+			if summary.DeliveryShortfallCents > 0 {
+				warning = "DELIVERY_MINIMUM_NOT_MET"
+			}
+			result.Warnings = append(result.Warnings, ValidationWarning{Type: warning, Message: msg})
 		} else if expect != nil && expect.DeliveryFeeCents != nil && *expect.DeliveryFeeCents != summary.DeliveryFeeCents {
 			result.Valid = false
 			result.Warnings = append(result.Warnings, ValidationWarning{Type: "DELIVERY_FEE_CHANGED",
@@ -158,6 +168,7 @@ type repricedItem struct {
 	unitPriceCents int64
 	available      bool
 	reason         string
+	cake           catalogapi.CakeOptions
 }
 
 func (s *Service) repriceItem(ctx context.Context, branchID string, item ordersapi.CartItem) (*repricedItem, error) {
@@ -166,7 +177,7 @@ func (s *Service) repriceItem(ctx context.Context, branchID string, item ordersa
 	if err != nil {
 		return nil, err
 	}
-	return &repricedItem{unitPriceCents: priced.UnitPriceCents, available: priced.Available, reason: priced.AvailableReason}, nil
+	return &repricedItem{unitPriceCents: priced.UnitPriceCents, available: priced.Available, reason: priced.AvailableReason, cake: priced.Cake}, nil
 }
 
 func idsOf(mods []ordersapi.SelectedModifier) []string {
@@ -324,6 +335,12 @@ func (s *Service) CreateOrder(ctx context.Context, id CartIdentity, req CreateOr
 		if !priced.Available {
 			return nil, apperr.New("PRODUCT_UNAVAILABLE", apperr.CategoryBusinessRule, item.ProductName+" is no longer available: "+priced.AvailableReason)
 		}
+		// The message on the cake, checked again: the product's settings may
+		// have changed since the line was added.
+		cakeMessage, err := cakeMessageFor(priced.Cake, item.CakeMessage, !id.isManualCart())
+		if err != nil {
+			return nil, err
+		}
 		lineTotal := priced.UnitPriceCents * int64(item.Quantity)
 		subtotal += lineTotal
 		orderItems = append(orderItems, ordersapi.OrderItem{
@@ -335,6 +352,7 @@ func (s *Service) CreateOrder(ctx context.Context, id CartIdentity, req CreateOr
 			// The cart line's own gift message, which used to be dropped here.
 			GiftMessage: item.GiftMessage,
 			SendKotTime: req.SendKotTime,
+			CakeMessage: cakeMessage,
 		})
 	}
 
@@ -345,6 +363,9 @@ func (s *Service) CreateOrder(ctx context.Context, id CartIdentity, req CreateOr
 		q := s.quoteCartDelivery(ctx, branch, cart, subtotal)
 		if !q.Deliverable {
 			return nil, errDeliveryUnavailable(q.Reason)
+		}
+		if short := deliveryShortfall(branch.MinOrderCents, subtotal); short > 0 && !id.isManualCart() {
+			return nil, errDeliveryMinimum(branch.MinOrderCents, short, branch.Currency)
 		}
 		deliveryFee = q.FeeCents
 	}

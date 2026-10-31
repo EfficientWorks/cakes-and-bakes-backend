@@ -26,6 +26,7 @@ import (
 	"bakehouse/services/catalog/internal/store/product"
 	"bakehouse/services/catalog/internal/store/shared"
 	"bakehouse/services/catalog/internal/store/tag"
+	"bakehouse/services/catalog/internal/store/upload"
 )
 
 // One alias per topic: every package names its type Repo, and embedding
@@ -38,6 +39,7 @@ type (
 	modifierRepo     = modifier.Repo
 	productRepo      = product.Repo
 	tagRepo          = tag.Repo
+	uploadRepo       = upload.Repo
 )
 
 // Store is every catalog repo behind one value.
@@ -49,6 +51,7 @@ type Store struct {
 	*modifierRepo
 	*productRepo
 	*tagRepo
+	*uploadRepo
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -61,12 +64,14 @@ func NewStore(pool *pgxpool.Pool) *Store {
 		modifierRepo:     modifier.New(pool),
 		productRepo:      product.New(pool, tags),
 		tagRepo:          tags,
+		uploadRepo:       upload.New(pool),
 	}
 }
 
 // Types and errors the domain layer names as store.X.
 type (
 	AdminProductQuery      = product.AdminProductQuery
+	CategoryCount          = product.CategoryCount
 	CategoryRow            = category.CategoryRow
 	StorefrontCouponFilter = coupon.StorefrontCouponFilter
 )
@@ -76,4 +81,5 @@ var (
 	ErrDuplicate      = shared.ErrDuplicate
 	ErrRelatedMissing = shared.ErrRelatedMissing
 	ErrMalformedID    = shared.ErrMalformedID
+	ErrCodeTaken      = shared.ErrCodeTaken
 )

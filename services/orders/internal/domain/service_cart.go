@@ -68,6 +68,9 @@ type AddItemRequest struct {
 	RecipientFirst *string
 	RecipientLast  *string
 	GiftMessage    *string
+	// CakeMessage is the words piped on the cake, checked against the
+	// product's cakeMessageMode and limit.
+	CakeMessage *string
 }
 
 // AddItem prices and validates the request server-side (never trusting a
@@ -152,6 +155,11 @@ func (s *Service) AddItem(ctx context.Context, id CartIdentity, req AddItemReque
 	// together; ordersapi.CartItem.UnitPriceCents stores just the branch-rule
 	// base price plus any variant delta, because ordersapi.CartItem.UnitTotalCents()
 	// re-adds the modifier deltas from the snapshotted selections.
+	cakeMessage, err := cakeMessageFor(priced.Cake, req.CakeMessage, !id.isManualCart())
+	if err != nil {
+		return nil, nil, "", err
+	}
+
 	basePlusVariant := cartItemBasePrice(priced)
 
 	item := ordersapi.CartItem{
@@ -160,6 +168,7 @@ func (s *Service) AddItem(ctx context.Context, id CartIdentity, req AddItemReque
 		Quantity: req.Quantity, SelectedFlavours: toSelectedModifiers(priced.SelectedFlavours), SelectedAddons: toSelectedModifiers(priced.SelectedAddons),
 		SelectedPresentation: toSelectedModifierPtr(priced.SelectedPresentation), SelectedWrapColour: toSelectedModifierPtr(priced.SelectedWrapColour),
 		IsGift: req.IsGift, RecipientFirstName: req.RecipientFirst, RecipientLastName: req.RecipientLast, GiftMessage: req.GiftMessage,
+		CakeMessage: cakeMessage,
 	}
 
 	// Adding what is already in the basket raises that line's quantity rather
@@ -176,7 +185,7 @@ func (s *Service) AddItem(ctx context.Context, id CartIdentity, req AddItemReque
 		// raises the count, it does not restate what is being bought.
 		if err := s.store.UpdateCartItem(ctx, cart.ID, existing.ID, existing.Quantity+item.Quantity,
 			existing.SelectedFlavours, existing.SelectedAddons, existing.SelectedPresentation, existing.SelectedWrapColour,
-			&existing.IsGift, existing.RecipientFirstName, existing.RecipientLastName, existing.GiftMessage); err != nil {
+			&existing.IsGift, existing.RecipientFirstName, existing.RecipientLastName, existing.GiftMessage, existing.CakeMessage); err != nil {
 			return nil, nil, "", apperr.Internal(err)
 		}
 	} else if _, err := s.store.AddCartItem(ctx, item); err != nil {
@@ -218,7 +227,8 @@ func findMergeable(existing []ordersapi.CartItem, incoming ordersapi.CartItem) *
 			!sameModifierSet(candidate.SelectedFlavours, incoming.SelectedFlavours) ||
 			!sameModifierSet(candidate.SelectedAddons, incoming.SelectedAddons) ||
 			!sameModifierPtr(candidate.SelectedPresentation, incoming.SelectedPresentation) ||
-			!sameModifierPtr(candidate.SelectedWrapColour, incoming.SelectedWrapColour) {
+			!sameModifierPtr(candidate.SelectedWrapColour, incoming.SelectedWrapColour) ||
+			!sameStringPtr(candidate.CakeMessage, incoming.CakeMessage) {
 			continue
 		}
 		return candidate
@@ -306,7 +316,7 @@ func cartItemBasePrice(p *catalogapi.PricedItem) int64 {
 // UpdateItem re-prices the line from scratch against current catalogue
 // state whenever selections change, rather than trusting stored deltas —
 // keeps the same server-never-trusts-client-price rule as AddItem.
-func (s *Service) UpdateItem(ctx context.Context, id CartIdentity, itemID string, quantity int, flavourIDs, addonIDs []string, presentationID, wrapColourID *string, isGift *bool, recipientFirst, recipientLast, giftMessage *string) (*ordersapi.Cart, *ordersapi.PriceSummary, error) {
+func (s *Service) UpdateItem(ctx context.Context, id CartIdentity, itemID string, quantity int, flavourIDs, addonIDs []string, presentationID, wrapColourID *string, isGift *bool, recipientFirst, recipientLast, giftMessage, cakeMessage *string) (*ordersapi.Cart, *ordersapi.PriceSummary, error) {
 	cart, err := s.resolveCart(ctx, id)
 	if err != nil {
 		return nil, nil, notFoundOrInternal(err, "Cart not found.")
@@ -375,12 +385,26 @@ func (s *Service) UpdateItem(ctx context.Context, id CartIdentity, itemID string
 		return nil, nil, apperr.New("PRODUCT_UNAVAILABLE", apperr.CategoryBusinessRule, "This product is currently unavailable: "+priced.AvailableReason)
 	}
 
+	// The message is checked when it is sent; nil keeps the line's own. An
+	// empty string clears it, which a required message refuses.
+	if cakeMessage != nil {
+		checked, err := cakeMessageFor(priced.Cake, cakeMessage, !id.isManualCart())
+		if err != nil {
+			return nil, nil, err
+		}
+		if checked == nil {
+			empty := ""
+			checked = &empty
+		}
+		cakeMessage = checked
+	}
+
 	flavours := toSelectedModifiers(priced.SelectedFlavours)
 	addons := toSelectedModifiers(priced.SelectedAddons)
 	presentation := toSelectedModifierPtr(priced.SelectedPresentation)
 	wrap := toSelectedModifierPtr(priced.SelectedWrapColour)
 
-	if err := s.store.UpdateCartItem(ctx, cart.ID, itemID, quantity, flavours, addons, presentation, wrap, isGift, recipientFirst, recipientLast, giftMessage); err != nil {
+	if err := s.store.UpdateCartItem(ctx, cart.ID, itemID, quantity, flavours, addons, presentation, wrap, isGift, recipientFirst, recipientLast, giftMessage, cakeMessage); err != nil {
 		return nil, nil, notFoundOrInternal(err, "Cart item not found.")
 	}
 
@@ -633,6 +657,13 @@ func (s *Service) priceCartWithCoupon(ctx context.Context, cart *ordersapi.Cart)
 		q := s.quoteCartDelivery(ctx, branch, cart, subtotal)
 		deliveryFee, deliveryAvailable, deliveryMessage = q.FeeCents, q.Deliverable, q.Reason
 	}
+	// The store's minimum for delivery (F1). An address it does not cover
+	// keeps that reason; a covered one below the minimum is collection only.
+	shortfall := deliveryShortfall(branch.MinOrderCents, subtotal)
+	if cart.FulfilmentType == ordersapi.FulfilmentDelivery && deliveryAvailable && shortfall > 0 {
+		deliveryFee, deliveryAvailable = 0, false
+		deliveryMessage = deliveryMinimumMessage(branch.MinOrderCents, shortfall, branch.Currency)
+	}
 
 	// A code that has stopped being valid since it was applied — expired
 	// overnight, used up by someone else, or left behind when the basket
@@ -682,7 +713,8 @@ func (s *Service) priceCartWithCoupon(ctx context.Context, cart *ordersapi.Cart)
 		SubtotalCents: subtotal, DeliveryFeeCents: deliveryFee, TaxCents: tax, TaxName: branchTaxName(branch),
 		TipCents: cart.TipCents, DiscountCents: discountCents, TotalCents: total,
 		DeliveryAvailable: deliveryAvailable, DeliveryMessage: deliveryMessage,
-		Currency: branch.Currency,
+		Currency:             branch.Currency,
+		DeliveryMinimumCents: max(branch.MinOrderCents, 0), DeliveryShortfallCents: shortfall,
 	}, discount, nil
 }
 

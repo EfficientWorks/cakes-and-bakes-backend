@@ -54,7 +54,7 @@ func (s *Repo) listCartItems(ctx context.Context, cartID string) ([]ordersapi.Ca
 		       ci.variant_id, ci.variant_name, ci.unit_price_cents, ci.quantity, 
 		       ci.selected_flavours, ci.selected_addons, ci.selected_presentation, ci.selected_wrap_colour, 
 		       ci.is_gift, ci.recipient_first_name, ci.recipient_last_name, ci.gift_message, ci.created_at, 
-		       ci.available 
+		       ci.available, ci.cake_message 
 		FROM cart_items ci 
 		LEFT JOIN products p ON p.id = ci.product_id 
 		WHERE ci.cart_id = $1 
@@ -75,7 +75,7 @@ func (s *Repo) listCartItems(ctx context.Context, cartID string) ([]ordersapi.Ca
 			&i.VariantID, &i.VariantName,
 			&i.UnitPriceCents, &i.Quantity, &flavoursRaw, &addonsRaw, &presRaw, &wrapRaw,
 			&i.IsGift, &i.RecipientFirstName, &i.RecipientLastName, &i.GiftMessage, &i.CreatedAt,
-			&i.Available); err != nil {
+			&i.Available, &i.CakeMessage); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal(flavoursRaw, &i.SelectedFlavours)

@@ -231,6 +231,8 @@ func main() {
 	// KDS: a Location ID can name a store or a central kitchen.
 	identitySvc.UseLocationResolver(franchiseSvc.BusinessIDResolver())
 	catalogSvc := catalog.New(pool, auditWriter, franchiseSvc.Branches(), imageStore)
+	// Public customer-photo uploads are throttled per IP.
+	catalogSvc.UseLimiter(limiter)
 	// Product videos: R2 when it is configured, otherwise the database.
 	if r2.Complete() {
 		catalogSvc.UseVideos(media.NewR2VideoStore(r2))
@@ -268,6 +270,8 @@ func main() {
 	ordersSvc.UseCardPayments(paymentsSvc.Cards())
 	// Seasonal tags: restricted dates keep products off those slots (website).
 	ordersSvc.UseTagRestrictions(catalogSvc.TagRestrictions())
+	// Custom orders: customer photos must be ones uploaded here.
+	ordersSvc.UseCustomerPhotos(catalogSvc.CustomerPhotos())
 	paymentsSvc.OnEvent(ordersSvc.HandlePaymentEvent)
 	// Street-address geocoding for radius delivery pricing: stores are located
 	// from their address, customers from theirs. LocationIQ, the same account
@@ -288,6 +292,8 @@ func main() {
 	adminSvc.UseEmailer(emailer)
 
 	enquiriesSvc := enquiries.New(pool, franchiseSvc.Branches(), emailer, limiter)
+	// A custom-order enquiry also creates its order (price to be confirmed).
+	enquiriesSvc.UseOrders(ordersSvc.CustomOrders())
 	businessSvc := business.New(pool, identitySvc.BusinessOwners(), cfg.PlatformAPIKey)
 	businessSvc.UseMedia(imageStore)
 

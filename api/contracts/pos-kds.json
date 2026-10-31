@@ -1415,6 +1415,9 @@
                           "deliveryInstructions": {
                             "type": "string"
                           },
+                          "enquiryId": {
+                            "type": "string"
+                          },
                           "fulfilmentType": {
                             "type": "string"
                           },
@@ -1431,6 +1434,9 @@
                             "type": "string"
                           },
                           "isAmended": {
+                            "type": "boolean"
+                          },
+                          "isCustomOrder": {
                             "type": "boolean"
                           },
                           "isGift": {
@@ -1464,6 +1470,9 @@
                                 },
                                 "batchNo": {
                                   "type": "integer"
+                                },
+                                "cakeMessage": {
+                                  "type": "string"
                                 },
                                 "cancelTime": {
                                   "type": "string"
@@ -1538,6 +1547,12 @@
                                 },
                                 "minPrepTimeUnit": {
                                   "type": "string"
+                                },
+                                "photoUrls": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
                                 },
                                 "presentation": {
                                   "properties": {
@@ -1721,6 +1736,9 @@
                             "type": "string"
                           },
                           "slotStartAt": {
+                            "type": "string"
+                          },
+                          "source": {
                             "type": "string"
                           },
                           "stage": {
@@ -5118,6 +5136,9 @@
                       "isAmended": {
                         "type": "boolean"
                       },
+                      "isCustomOrder": {
+                        "type": "boolean"
+                      },
                       "itemCount": {
                         "type": "integer"
                       },
@@ -5143,6 +5164,9 @@
                             },
                             "batchNo": {
                               "type": "integer"
+                            },
+                            "cakeMessage": {
+                              "type": "string"
                             },
                             "cancelTime": {
                               "type": "string"
@@ -5193,6 +5217,12 @@
                             },
                             "lineTotalCents": {
                               "type": "integer"
+                            },
+                            "photoUrls": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
                             },
                             "presentation": {
                               "properties": {
@@ -5850,6 +5880,9 @@
                     "endTime": {
                       "type": "string"
                     },
+                    "enquiryId": {
+                      "type": "string"
+                    },
                     "fulfilmentType": {
                       "type": "string"
                     },
@@ -5883,6 +5916,9 @@
                     "isAmended": {
                       "type": "boolean"
                     },
+                    "isCustomOrder": {
+                      "type": "boolean"
+                    },
                     "isGift": {
                       "type": "boolean"
                     },
@@ -5908,6 +5944,9 @@
                           },
                           "batchNo": {
                             "type": "integer"
+                          },
+                          "cakeMessage": {
+                            "type": "string"
                           },
                           "cancelTime": {
                             "type": "string"
@@ -5958,6 +5997,12 @@
                           },
                           "lineTotalCents": {
                             "type": "integer"
+                          },
+                          "photoUrls": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "presentation": {
                             "properties": {
@@ -6337,6 +6382,9 @@
                     "slotStart": {
                       "type": "string"
                     },
+                    "source": {
+                      "type": "string"
+                    },
                     "splitMode": {
                       "type": "string"
                     },
@@ -6379,6 +6427,12 @@
                         },
                         "deliveryMessage": {
                           "type": "string"
+                        },
+                        "deliveryMinimumCents": {
+                          "type": "integer"
+                        },
+                        "deliveryShortfallCents": {
+                          "type": "integer"
                         },
                         "discount": {
                           "type": "integer"
@@ -11800,6 +11854,9 @@
                     "endTime": {
                       "type": "string"
                     },
+                    "enquiryId": {
+                      "type": "string"
+                    },
                     "fulfilmentType": {
                       "type": "string"
                     },
@@ -11833,6 +11890,9 @@
                     "isAmended": {
                       "type": "boolean"
                     },
+                    "isCustomOrder": {
+                      "type": "boolean"
+                    },
                     "isGift": {
                       "type": "boolean"
                     },
@@ -11858,6 +11918,9 @@
                           },
                           "batchNo": {
                             "type": "integer"
+                          },
+                          "cakeMessage": {
+                            "type": "string"
                           },
                           "cancelTime": {
                             "type": "string"
@@ -11908,6 +11971,12 @@
                           },
                           "lineTotalCents": {
                             "type": "integer"
+                          },
+                          "photoUrls": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "presentation": {
                             "properties": {
@@ -12287,6 +12356,9 @@
                     "slotStart": {
                       "type": "string"
                     },
+                    "source": {
+                      "type": "string"
+                    },
                     "splitMode": {
                       "type": "string"
                     },
@@ -12329,6 +12401,12 @@
                         },
                         "deliveryMessage": {
                           "type": "string"
+                        },
+                        "deliveryMinimumCents": {
+                          "type": "integer"
+                        },
+                        "deliveryShortfallCents": {
+                          "type": "integer"
                         },
                         "discount": {
                           "type": "integer"
@@ -12638,6 +12716,60 @@
         }
       },
       "403": {
+        "schema": {
+          "properties": {
+            "data": {},
+            "error": {
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string"
+                },
+                "fields": {
+                  "items": {
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "field": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "meta": {
+                  "additionalProperties": {},
+                  "type": "object"
+                },
+                "requestId": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "meta": {},
+            "stats": {},
+            "statusCode": {
+              "type": "integer"
+            },
+            "success": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "422": {
         "schema": {
           "properties": {
             "data": {},
@@ -14282,6 +14414,9 @@
                         "endTime": {
                           "type": "string"
                         },
+                        "enquiryId": {
+                          "type": "string"
+                        },
                         "fulfilmentType": {
                           "type": "string"
                         },
@@ -14315,6 +14450,9 @@
                         "isAmended": {
                           "type": "boolean"
                         },
+                        "isCustomOrder": {
+                          "type": "boolean"
+                        },
                         "isGift": {
                           "type": "boolean"
                         },
@@ -14340,6 +14478,9 @@
                               },
                               "batchNo": {
                                 "type": "integer"
+                              },
+                              "cakeMessage": {
+                                "type": "string"
                               },
                               "cancelTime": {
                                 "type": "string"
@@ -14390,6 +14531,12 @@
                               },
                               "lineTotalCents": {
                                 "type": "integer"
+                              },
+                              "photoUrls": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
                               },
                               "presentation": {
                                 "properties": {
@@ -14769,6 +14916,9 @@
                         "slotStart": {
                           "type": "string"
                         },
+                        "source": {
+                          "type": "string"
+                        },
                         "splitMode": {
                           "type": "string"
                         },
@@ -14811,6 +14961,12 @@
                             },
                             "deliveryMessage": {
                               "type": "string"
+                            },
+                            "deliveryMinimumCents": {
+                              "type": "integer"
+                            },
+                            "deliveryShortfallCents": {
+                              "type": "integer"
                             },
                             "discount": {
                               "type": "integer"
@@ -17382,6 +17538,9 @@
                         "endTime": {
                           "type": "string"
                         },
+                        "enquiryId": {
+                          "type": "string"
+                        },
                         "fulfilmentType": {
                           "type": "string"
                         },
@@ -17415,6 +17574,9 @@
                         "isAmended": {
                           "type": "boolean"
                         },
+                        "isCustomOrder": {
+                          "type": "boolean"
+                        },
                         "isGift": {
                           "type": "boolean"
                         },
@@ -17440,6 +17602,9 @@
                               },
                               "batchNo": {
                                 "type": "integer"
+                              },
+                              "cakeMessage": {
+                                "type": "string"
                               },
                               "cancelTime": {
                                 "type": "string"
@@ -17490,6 +17655,12 @@
                               },
                               "lineTotalCents": {
                                 "type": "integer"
+                              },
+                              "photoUrls": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
                               },
                               "presentation": {
                                 "properties": {
@@ -17869,6 +18040,9 @@
                         "slotStart": {
                           "type": "string"
                         },
+                        "source": {
+                          "type": "string"
+                        },
                         "splitMode": {
                           "type": "string"
                         },
@@ -17911,6 +18085,12 @@
                             },
                             "deliveryMessage": {
                               "type": "string"
+                            },
+                            "deliveryMinimumCents": {
+                              "type": "integer"
+                            },
+                            "deliveryShortfallCents": {
+                              "type": "integer"
                             },
                             "discount": {
                               "type": "integer"

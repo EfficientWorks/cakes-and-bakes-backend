@@ -6,7 +6,9 @@ import (
 
 // orderSummaryDTO is the lighter shape for list views (ADM-01, account/orders).
 type orderSummaryDTOType struct {
-	ID             string  `json:"id"`
+	ID string `json:"id"`
+	// Custom Orders form order: price to be confirmed, unpaid.
+	IsCustomOrder  bool    `json:"isCustomOrder"`
 	Reference      string  `json:"reference"`
 	BillNo         *int    `json:"billNo"`
 	OrderNo        *int    `json:"orderNo"`
@@ -117,6 +119,7 @@ func orderSummaryDTO(o *ordersapi.Order) orderSummaryDTOType {
 	returnedQty, returnedCents := returnedTotals(o.Items)
 	return orderSummaryDTOType{
 		ID: o.ID, Reference: o.Reference, BillNo: o.BillNo, OrderNo: o.BillNo, BranchID: o.BranchID, Status: o.Status, FulfilmentType: o.FulfilmentType,
+		IsCustomOrder: o.IsCustomOrder(),
 		RecipientName: o.RecipientFirstName + " " + o.RecipientLastName,
 		PurchaserName: o.PurchaserFirstName + " " + o.PurchaserLastName, PurchaserPhone: o.PurchaserPhone,
 		ScheduledDate: o.ScheduledDate.Format(dateFmt), SlotStart: o.SlotStart, SlotEnd: o.SlotEnd,

@@ -103,7 +103,10 @@ type CartItem struct {
 	RecipientFirstName   *string
 	RecipientLastName    *string
 	GiftMessage          *string
-	Available            bool
+	// CakeMessage is the words piped on the cake (F2), separate from the
+	// gift card's GiftMessage. Nil when none.
+	CakeMessage *string
+	Available   bool
 	// Restriction is set when a seasonal tag's restricted dates rule this
 	// line out for the cart's chosen slot (website carts).
 	Restriction *ItemRestriction
@@ -349,7 +352,12 @@ type Order struct {
 	Cancellation *OrderCancellation
 	// BusinessID is the business the order belongs to (its store's), set by
 	// the database when the order is created.
-	BusinessID        *string
+	BusinessID *string
+	// Source is "custom_order" for an order created from the Custom Orders
+	// form (price to be confirmed, unpaid), nil otherwise. EnquiryID is the
+	// enquiry it came from.
+	Source            *string
+	EnquiryID         *string
 	ReturnedBy        *string
 	ReturnedByName    *string
 	TotalDurationSecs *int
@@ -482,8 +490,12 @@ type OrderItem struct {
 
 	// KDS: the line's kitchen status and when it moved.
 	// Gift message and occasion for this line (storefront per-line gift, POS).
-	GiftMessage  *string
-	GiftReason   *string
+	GiftMessage *string
+	GiftReason  *string
+	// CakeMessage is the words piped on the cake; PhotoURLs the customer
+	// photos to print (custom orders, up to 3). Nil / empty when none.
+	CakeMessage  *string
+	PhotoURLs    []string
 	KOTStatus    string
 	KOTStartedAt *time.Time
 	KOTReadyAt   *time.Time
@@ -541,6 +553,10 @@ type PriceSummary struct {
 	// not, why (a customer-readable sentence). Always available for pickup.
 	DeliveryAvailable bool
 	DeliveryMessage   string
+	// The store's minimum item subtotal for delivery (0 = none), and how
+	// much more the basket needs to reach it (0 when it does).
+	DeliveryMinimumCents   int64
+	DeliveryShortfallCents int64
 
 	// Currency the amounts are in: the store's business's.
 	Currency string

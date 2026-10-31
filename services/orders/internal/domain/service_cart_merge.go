@@ -66,7 +66,7 @@ func (s *Service) mergeGuestCart(ctx context.Context, customerID, guestToken str
 		if same := findMergeable(lines, it); same != nil {
 			if err := s.store.UpdateCartItem(ctx, existing.ID, same.ID, same.Quantity+it.Quantity,
 				same.SelectedFlavours, same.SelectedAddons, same.SelectedPresentation, same.SelectedWrapColour,
-				&same.IsGift, same.RecipientFirstName, same.RecipientLastName, same.GiftMessage); err != nil {
+				&same.IsGift, same.RecipientFirstName, same.RecipientLastName, same.GiftMessage, same.CakeMessage); err != nil {
 				slog.Warn("cart merge: could not raise a line", "error", err)
 				continue
 			}
