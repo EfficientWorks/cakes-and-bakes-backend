@@ -358,11 +358,11 @@ type facetsDTOType struct {
 	Dietary       []string             `json:"dietary"`
 	MinPriceCents int64                `json:"minPriceCents" example:"3200"`
 	MaxPriceCents int64                `json:"maxPriceCents" example:"14200"`
-	// Every active category in the admin's order, with its count of live
-	// website products — categories with none are included (count 0).
+	// Active categories that have live website products, in the admin's
+	// order, with their counts. Categories with none are left out.
 	Categories []facetCategoryDTO `json:"categories"`
-	// Every allowed colour and sponge, in a fixed order, with product counts
-	// (0 included). Filter with ?colour= and ?sponge=.
+	// Colours and sponges used by at least one live product, in a fixed
+	// order, with product counts. Filter with ?colour= and ?sponge=.
 	Colours []facetOptionDTO `json:"colours"`
 	Sponges []facetOptionDTO `json:"sponges"`
 	Sorts   []sortOptionDTO  `json:"sorts"`
@@ -480,6 +480,10 @@ type facetOptionDTO struct {
 func facetCategoryDTOs(in []store.CategoryCount) []facetCategoryDTO {
 	out := make([]facetCategoryDTO, 0, len(in))
 	for _, c := range in {
+		// Only categories with products: an option that returns nothing is noise.
+		if c.Count == 0 {
+			continue
+		}
 		out = append(out, facetCategoryDTO{ID: c.ID, Name: c.Name, Slug: c.Slug, SortOrder: c.SortOrder, ImageURL: c.ImageURL, Count: c.Count})
 	}
 	return out
@@ -488,6 +492,9 @@ func facetCategoryDTOs(in []store.CategoryCount) []facetCategoryDTO {
 func facetOptionDTOs(in []domain.OptionCount) []facetOptionDTO {
 	out := make([]facetOptionDTO, 0, len(in))
 	for _, o := range in {
+		if o.Count == 0 {
+			continue
+		}
 		out = append(out, facetOptionDTO{Value: o.Value, Count: o.Count})
 	}
 	return out

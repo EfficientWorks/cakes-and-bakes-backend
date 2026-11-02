@@ -1381,15 +1381,15 @@ definitions:
     properties:
       categories:
         description: |-
-          Every active category in the admin's order, with its count of live
-          website products — categories with none are included (count 0).
+          Active categories that have live website products, in the admin's
+          order, with their counts. Categories with none are left out.
         items:
           $ref: '#/definitions/services_catalog_internal_api.facetCategoryDTO'
         type: array
       colours:
         description: |-
-          Every allowed colour and sponge, in a fixed order, with product counts
-          (0 included). Filter with ?colour= and ?sponge=.
+          Colours and sponges used by at least one live product, in a fixed
+          order, with product counts. Filter with ?colour= and ?sponge=.
         items:
           $ref: '#/definitions/services_catalog_internal_api.facetOptionDTO'
         type: array
