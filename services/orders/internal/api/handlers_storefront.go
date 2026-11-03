@@ -46,7 +46,7 @@ func writeCartToken(w http.ResponseWriter, token string) {
 // --- Slots (SF-20, GET /storefront/slots) -------------------------------------
 
 // @Summary		List bookable delivery or pickup slots
-// @Description	Slots are cut every 30 minutes from the store's pickup or delivery hours. With productId (repeatable) or cart=true, slots inside a seasonal tag's restricted dates for those products are left out; unavailableDates lists the days that lost every slot to a restriction, restrictions lists the windows.
+// @Description	Slots are cut every 30 minutes from the store's pickup or delivery hours. For delivery, a slot carries deliveryFeeCents when the store charges by delivery time and a time slot covers it (a free-over amount still waives it at checkout); timeBasedDeliveryFees is true when any slot does. With productId (repeatable) or cart=true, slots inside a seasonal tag's restricted dates for those products are left out; unavailableDates lists the days that lost every slot to a restriction, restrictions lists the windows.
 // @Param			branchId		query	string	true	"Store"
 // @Param			fulfilmentType	query	string	true	"pickup | delivery"
 // @Param			startDate		query	string	false	"YYYY-MM-DD (default today)"
@@ -94,6 +94,22 @@ func (h *Handler) GetSlots(w http.ResponseWriter, r *http.Request) {
 	for _, d := range daySlots {
 		out = append(out, daySlotsDTO(&d))
 	}
+	// Delivery: the charge set for each delivery time, when the store
+	// charges by delivery time.
+	timeBased := false
+	if fulfilmentType == ordersapi.FulfilmentDelivery {
+		if pricing, err := h.svc.DeliveryPricing(r.Context(), branchID); err == nil && pricing.TimeBased {
+			for di := range out {
+				for si := range out[di].Slots {
+					if fee, ok := pricing.SlotFee(out[di].Slots[si].Start); ok {
+						fee := fee
+						out[di].Slots[si].DeliveryFeeCents = &fee
+						timeBased = true
+					}
+				}
+			}
+		}
+	}
 	restrictions := make([]map[string]any, 0, len(info.Restrictions))
 	for _, pr := range info.Restrictions {
 		restrictions = append(restrictions, map[string]any{
@@ -104,6 +120,8 @@ func (h *Handler) GetSlots(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.OK(w, map[string]interface{}{
 		"data": out, "cutoffNote": cutoffNote,
+		// True when at least one slot carries its own deliveryFeeCents.
+		"timeBasedDeliveryFees": timeBased,
 		// Dates that lose every slot to a restricted tag: "not available
 		// for this product" on the calendar.
 		"unavailableDates": info.UnavailableDates,

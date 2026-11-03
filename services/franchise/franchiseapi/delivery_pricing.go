@@ -306,6 +306,18 @@ func applyFreeOver(fee int64, freeOver *int64, subtotal int64) (int64, bool) {
 	return fee, false
 }
 
+// SlotFee is the delivery charge set for the delivery time slot starting at
+// slotStart, when the store charges by delivery time and one of its time
+// slots covers it. ok is false otherwise — the charge then depends on the
+// address (and order amount) and is only known at checkout. A free-over
+// amount still waives this at checkout, as Quote does.
+func (p DeliveryPricing) SlotFee(slotStart string) (feeCents int64, ok bool) {
+	if !p.TimeBased || p.ChargeType == ChargeFree {
+		return 0, false
+	}
+	return timeSlotFee(p.TimeSlots, slotStart)
+}
+
 // timeSlotFee finds the time slot a delivery time falls in. Both ends count:
 // 11:00 is inside 10:00–11:00. Where slots meet (10:00–11:00, 11:00–12:00)
 // the one starting at that time wins over the one ending at it.

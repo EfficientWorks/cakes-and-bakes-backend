@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"bakehouse/services/franchise/franchiseapi"
 	"context"
 	"fmt"
 	"log/slog"
@@ -126,6 +127,16 @@ func hhmm5(s string) string {
 
 // GetAvailableSlotsFor is GetAvailableSlots without the slots that are
 // restricted for any of the products.
+// DeliveryPricing is the store's delivery region and charges, so a slot
+// list can show the charge set for each delivery time.
+func (s *Service) DeliveryPricing(ctx context.Context, branchID string) (franchiseapi.DeliveryPricing, error) {
+	branch, err := s.branches.GetBranch(ctx, branchID)
+	if err != nil {
+		return franchiseapi.DeliveryPricing{}, err
+	}
+	return branch.DeliveryPricing, nil
+}
+
 func (s *Service) GetAvailableSlotsFor(ctx context.Context, branchID, fulfilmentType string, startDate time.Time, days int, productIDs []string) ([]ordersapi.DaySlots, string, *RestrictionInfo, error) {
 	slots, cutoffNote, err := s.GetAvailableSlots(ctx, branchID, fulfilmentType, startDate, days)
 	if err != nil {

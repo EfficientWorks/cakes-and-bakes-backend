@@ -269,3 +269,35 @@ func TestValidate(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSlotFee(t *testing.T) {
+	p := DeliveryPricing{
+		ChargeType: ChargeFixed, FixedFeeCents: 499, TimeBased: true,
+		TimeSlots: []TimeFee{{From: "09:00", To: "12:00", FeeCents: 799}, {From: "12:00", To: "18:00", FeeCents: 599}},
+	}
+	cases := []struct {
+		start string
+		fee   int64
+		ok    bool
+	}{
+		{"09:00:00", 799, true},
+		{"11:30:00", 799, true},
+		{"12:00:00", 599, true}, // the slot starting at 12:00 wins
+		{"18:00:00", 599, true}, // end of the last slot counts
+		{"19:00:00", 0, false},  // no time slot: charge depends on the address
+	}
+	for _, c := range cases {
+		fee, ok := p.SlotFee(c.start)
+		if fee != c.fee || ok != c.ok {
+			t.Errorf("SlotFee(%s) = %d, %v; want %d, %v", c.start, fee, ok, c.fee, c.ok)
+		}
+	}
+	if _, ok := (DeliveryPricing{TimeSlots: p.TimeSlots}).SlotFee("10:00"); ok {
+		t.Error("time slots must not apply unless the store charges by delivery time")
+	}
+	free := p
+	free.ChargeType = ChargeFree
+	if _, ok := free.SlotFee("10:00"); ok {
+		t.Error("time slots must not apply to free delivery")
+	}
+}

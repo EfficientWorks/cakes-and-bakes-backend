@@ -15038,7 +15038,7 @@ const docTemplate = `{
         },
         "/storefront/slots": {
             "get": {
-                "description": "Slots are cut every 30 minutes from the store's pickup or delivery hours. With productId (repeatable) or cart=true, slots inside a seasonal tag's restricted dates for those products are left out; unavailableDates lists the days that lost every slot to a restriction, restrictions lists the windows.",
+                "description": "Slots are cut every 30 minutes from the store's pickup or delivery hours. For delivery, a slot carries deliveryFeeCents when the store charges by delivery time and a time slot covers it (a free-over amount still waives it at checkout); timeBasedDeliveryFees is true when any slot does. With productId (repeatable) or cart=true, slots inside a seasonal tag's restricted dates for those products are left out; unavailableDates lists the days that lost every slot to a restriction, restrictions lists the windows.",
                 "produces": [
                     "application/json"
                 ],

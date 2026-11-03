@@ -120,6 +120,11 @@ type slotDTOType struct {
 	Start     string `json:"start"`
 	End       string `json:"end"`
 	Remaining int    `json:"remaining"`
+	// DeliveryFeeCents is the charge the admin set for this delivery time
+	// (delivery pricing, charge by delivery time). Absent when no time slot
+	// covers it: the charge then depends on the address and is quoted at
+	// checkout. Never set for pickup.
+	DeliveryFeeCents *int64 `json:"deliveryFeeCents,omitempty" example:"499"`
 }
 
 type daySlotsDTOType struct {
