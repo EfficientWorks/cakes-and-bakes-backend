@@ -186,7 +186,7 @@ func productListDTO(p *domain.ProductWithAvailability) productListDTOType {
 	out.MinPriceCents = minPricePtr
 	out.MaxPriceCents = maxPricePtr
 
-	if p.IsVariationPriced() && len(p.ModifierGroups) > 0 {
+	if (p.IsVariationPriced() || p.HasCombinations()) && len(p.ModifierGroups) > 0 {
 		out.ModifierGroups = modifierGroupsStorefrontDTO(p.ModifierGroups)
 		if vMin, vMax, has := p.VariationPriceRange(); has {
 			out.MinPriceCents, out.MaxPriceCents = &vMin, &vMax

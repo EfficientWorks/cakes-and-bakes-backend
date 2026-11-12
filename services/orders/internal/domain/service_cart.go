@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"bakehouse/services/franchise/franchiseapi"
 	"context"
 	"errors"
 	"log/slog"
@@ -29,12 +30,29 @@ func (s *Service) resolveCart(ctx context.Context, id CartIdentity) (*ordersapi.
 		if id.GuestToken != "" {
 			s.mergeGuestCart(ctx, *id.CustomerID, id.GuestToken)
 		}
-		return s.store.GetCartByCustomer(ctx, *id.CustomerID)
+		return s.ownCart(ctx)(s.store.GetCartByCustomer(ctx, *id.CustomerID))
 	}
 	if id.GuestToken != "" {
-		return s.store.GetCartByGuestTokenHash(ctx, auth.HashOpaqueToken(id.GuestToken))
+		return s.ownCart(ctx)(s.store.GetCartByGuestTokenHash(ctx, auth.HashOpaqueToken(id.GuestToken)))
 	}
 	return nil, ordersapi.ErrNotFound
+}
+
+// ownCart hides a cart whose store belongs to another business — e.g. a guest
+// token kept in the browser after the website was pointed at a different
+// business. Guest carts aren't tied to a business, so without this the cart
+// would load and then fail to price (500). Treated as no cart: the next add
+// reuses the same token and starts a fresh cart for this business.
+func (s *Service) ownCart(ctx context.Context) func(*ordersapi.Cart, error) (*ordersapi.Cart, error) {
+	return func(cart *ordersapi.Cart, err error) (*ordersapi.Cart, error) {
+		if err != nil || cart == nil || cart.BranchID == "" {
+			return cart, err
+		}
+		if _, berr := s.branches.GetBranch(ctx, cart.BranchID); errors.Is(berr, franchiseapi.ErrNotFound) {
+			return nil, ordersapi.ErrNotFound
+		}
+		return cart, nil
+	}
 }
 
 // GetCart returns the caller's cart with a live price summary, or an empty

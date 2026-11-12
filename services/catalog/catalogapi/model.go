@@ -179,6 +179,10 @@ type Product struct {
 	Variants       []ProductVariant
 	ModifierGroups []ModifierGroup
 	IsModifier     bool
+	// Combinations are the option-set rows (Size × Sponge × Cream …). Loaded
+	// with the modifier groups; empty for a product sold the old way. See
+	// combination.go.
+	Combinations []ProductCombination
 
 	StorePrices []BranchProductRule `json:"storePrices"`
 	BranchIds   []string            `json:"branchIds"`
@@ -256,6 +260,10 @@ const ReasonBranchNotSelected = "branch_not_selected"
 const ReasonProductNotMapped = "product_not_mapped_to_branch"
 
 const ReasonCategoryNotMapped = "category_not_mapped_to_branch"
+
+// ReasonCombinationUnavailable: the chosen options are not a combination the
+// product is sold in, or that combination is switched off.
+const ReasonCombinationUnavailable = "combination_unavailable"
 
 // Resolved reports whether this availability reflects a real branch check.
 func (a Availability) Resolved() bool { return a.Reason != ReasonBranchNotSelected }
@@ -487,6 +495,11 @@ func (p Product) EffectivePricingMode() string {
 // Option prices are taken as loaded, so a caller that has already applied a
 // branch's modifier price overrides gets that branch's range.
 func (p Product) VariationPriceRange() (minCents, maxCents int64, hasVariations bool) {
+	// A product sold by combination ranges over the rows that are on, since
+	// a row's price need not be the sum of its options.
+	if p.HasCombinations() {
+		return p.CombinationPriceRange()
+	}
 	for _, g := range p.ModifierGroups {
 		if g.Kind != ModifierKindVariation || len(g.Options) == 0 {
 			continue
@@ -513,7 +526,7 @@ func (p Product) VariationPriceRange() (minCents, maxCents int64, hasVariations 
 // with no variations is a single price at both ends.
 func (p Product) PriceRange() (minCents, maxCents int64) {
 	vMin, vMax, has := p.VariationPriceRange()
-	if p.IsVariationPriced() && has {
+	if (p.IsVariationPriced() || p.HasCombinations()) && has {
 		return vMin, vMax
 	}
 	return p.BasePriceCents + vMin, p.BasePriceCents + vMax

@@ -324,6 +324,12 @@ func (s *Repo) loadModifierGroups(ctx context.Context, p *catalogapi.Product) er
 
 	p.ModifierGroups = groups
 	p.IsModifier = len(groups) > 0
+
+	combos, err := s.ListProductCombinations(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	p.Combinations = combos
 	return nil
 }
 

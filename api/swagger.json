@@ -6920,6 +6920,126 @@
                 }
             }
         },
+        "/admin/products/{id}/combinations": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The Variations Set screen: the variation groups (option sets) the product carries with each option's price, and every combination row with its automatic price (sum of its options), the typed price if any, and On/Off. Rows that no longer match the product's option sets come back with isValid false.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-catalogue"
+                ],
+                "summary": "A product's option-set combinations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_catalog_internal_api.adminCombinationsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Saves the Variations Set table as a whole: rows sent are kept (matched by their options, so ids survive), rows left out are deleted. Attach the option sets first with PUT /admin/products/{id}/modifiers — every row needs exactly one option from each variation group the product carries. An empty list removes every row and the product is priced the old way again. No stock is tracked; isActive false hides a row everywhere.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-catalogue"
+                ],
+                "summary": "Replace a product's option-set combinations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rows",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services_catalog_internal_api.setCombinationsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_catalog_internal_api.adminCombinationsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "INVALID_COMBINATION | DUPLICATE_COMBINATION | INVALID_PRICE | TOO_MANY_COMBINATIONS",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/products/{id}/modifiers": {
             "put": {
                 "security": [
@@ -17010,6 +17130,57 @@
                 }
             }
         },
+        "services_catalog_internal_api.adminCombinationDTO": {
+            "type": "object",
+            "properties": {
+                "autoPriceCents": {
+                    "description": "AutoPriceCents is the sum of the options' prices; PriceCents is the\nprice staff typed, null when the row uses the automatic price.",
+                    "type": "integer"
+                },
+                "effectivePriceCents": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "isValid": {
+                    "type": "boolean"
+                },
+                "label": {
+                    "description": "Label is \"8 Inch | Vanilla Eggless | Vanilla Fresh Cream\"; empty when\nthe row no longer matches the product's option sets (isValid false).",
+                    "type": "string"
+                },
+                "optionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "priceCents": {
+                    "type": "integer"
+                }
+            }
+        },
+        "services_catalog_internal_api.adminCombinationsResponse": {
+            "type": "object",
+            "properties": {
+                "combinations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services_catalog_internal_api.adminCombinationDTO"
+                    }
+                },
+                "optionSets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services_catalog_internal_api.combinationOptionSetDTO"
+                    }
+                }
+            }
+        },
         "services_catalog_internal_api.adminStorePriceDTO": {
             "type": "object",
             "properties": {
@@ -17128,6 +17299,61 @@
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "services_catalog_internal_api.combinationOptionDTO": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "priceCents": {
+                    "type": "integer"
+                }
+            }
+        },
+        "services_catalog_internal_api.combinationOptionSetDTO": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services_catalog_internal_api.combinationOptionDTO"
+                    }
+                }
+            }
+        },
+        "services_catalog_internal_api.combinationRowRequest": {
+            "type": "object",
+            "properties": {
+                "isActive": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "optionIds": {
+                    "description": "One option id from each option set on the product.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "priceCents": {
+                    "description": "Omit or send null for the automatic price (sum of the options' prices).",
+                    "type": "integer",
+                    "example": 3499
                 }
             }
         },
@@ -18028,6 +18254,17 @@
                     "description": "active (default) | inactive",
                     "type": "string",
                     "example": "active"
+                }
+            }
+        },
+        "services_catalog_internal_api.setCombinationsRequest": {
+            "type": "object",
+            "properties": {
+                "combinations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services_catalog_internal_api.combinationRowRequest"
+                    }
                 }
             }
         },

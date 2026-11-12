@@ -112,6 +112,10 @@ type productDetailDTOType struct {
 	Ingredients     *string                `json:"ingredients"`
 	Returns         *string                `json:"returns"`
 	Disclaimer      *string                `json:"disclaimer"`
+	// Combinations is set for a product sold by option sets (Size × Sponge ×
+	// Cream): only the rows on sale, each with its price. A choice that is
+	// not in this list cannot be bought. Empty for every other product.
+	Combinations []storefrontCombinationDTO `json:"combinations"`
 }
 
 func productDetailDTO(p *domain.ProductWithAvailability, similar []catalogapi.Product) productDetailDTOType {
@@ -130,6 +134,7 @@ func productDetailDTO(p *domain.ProductWithAvailability, similar []catalogapi.Pr
 		Returns:     p.ReturnsNote,
 	}
 	out.ModifierGroups = modifierGroupsStorefrontDTO(p.ModifierGroups)
+	out.Combinations = storefrontCombinations(&p.Product)
 	out.productListDTOType.ModifierGroups = nil
 	applyStorefrontPriceRange(&out.productListDTOType, &p.Product)
 	for _, sp := range similar {
@@ -158,7 +163,11 @@ type storeProductDetailDTOType struct {
 	Ingredients     *string                `json:"ingredients"`
 	Returns         *string                `json:"returns"`
 	Disclaimer      *string                `json:"disclaimer"`
-	BasePrice       string                 `json:"basePrice,omitempty"`
+	// Combinations is set for a product sold by option sets (Size × Sponge ×
+	// Cream): only the rows on sale, each with its price. A choice that is
+	// not in this list cannot be bought. Empty for every other product.
+	Combinations []storefrontCombinationDTO `json:"combinations"`
+	BasePrice    string                     `json:"basePrice,omitempty"`
 }
 
 func storeProductDetailDTO(p *domain.ProductWithAvailability, similar []catalogapi.Product) storeProductDetailDTOType {
@@ -179,6 +188,7 @@ func storeProductDetailDTO(p *domain.ProductWithAvailability, similar []cataloga
 	out.StorePrices = nil
 	out.BranchIds = nil
 	out.ModifierGroups = modifierGroupsStorefrontDTO(p.ModifierGroups)
+	out.Combinations = storefrontCombinations(&p.Product)
 	out.productListDTOType.ModifierGroups = nil
 	applyStorefrontPriceRange(&out.productListDTOType, &p.Product)
 	for _, sp := range similar {

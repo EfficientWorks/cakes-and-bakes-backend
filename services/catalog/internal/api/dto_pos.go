@@ -63,14 +63,21 @@ type posProductListDTOType struct {
 	StorePrices     *[]adminStorePriceDTO     `json:"storePrices,omitempty"`
 	BranchIds       *[]string                 `json:"storeIds,omitempty"`
 	ModifierGroups  []posModifierGroupDTOType `json:"modifierGroups,omitempty"`
+	// Combinations: for a product sold by option sets, the rows on sale with
+	// their prices. Pick one option per variation group; only these choices
+	// may be sold, at exactly this price. Omitted for every other product.
+	Combinations []storefrontCombinationDTO `json:"combinations,omitempty"`
 }
 
 func posProductListDTO(p *domain.ProductWithAvailability) posProductListDTOType {
 	base := productListDTO(p)
 	applyStorefrontPriceRange(&base, &p.Product)
 	out := posProductListDTOFrom(base)
-	if p.IsVariationPriced() && len(p.ModifierGroups) > 0 {
+	if (p.IsVariationPriced() || p.HasCombinations()) && len(p.ModifierGroups) > 0 {
 		out.ModifierGroups = posModifierGroupsDTO(p.ModifierGroups)
+	}
+	if p.HasCombinations() {
+		out.Combinations = storefrontCombinations(&p.Product)
 	}
 	return out
 }
@@ -180,6 +187,9 @@ func posProductDetailDTO(p *domain.ProductWithAvailability, similar []catalogapi
 	}
 	out.ModifierGroups = posModifierGroupsDTO(p.ModifierGroups)
 	out.posProductListDTOType.ModifierGroups = nil
+	if p.HasCombinations() {
+		out.Combinations = storefrontCombinations(&p.Product)
+	}
 	for _, sp := range similar {
 		s := sp
 		ps := productSummaryDTO(&s)

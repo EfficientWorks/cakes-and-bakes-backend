@@ -17,6 +17,12 @@ type PricedItem struct {
 	ProductImageURL *string
 	VariantID       *string
 	VariantName     *string
+	// CombinationID and CombinationName are set for a product sold by option
+	// sets: the row the selection matched and its label ("8 Inch | Vanilla
+	// Eggless | Vanilla Fresh Cream"). The row's price is then in
+	// UnitPriceCents and the variation options' deltas are zero.
+	CombinationID   *string
+	CombinationName *string
 	UnitPriceCents  int64 // base (branch-overridden) + variant delta + all modifier deltas
 	PricingMode     string
 	Available       bool

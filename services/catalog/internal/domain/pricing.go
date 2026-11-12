@@ -94,7 +94,7 @@ func (s *Service) GetPricedItem(ctx context.Context, branchID, productID string,
 	 * together with UnitTotalCents(), so a zero base with the option prices
 	 * beside it reads back to the same number this returns.
 	 */
-	if _, _, hasVariations := product.VariationPriceRange(); product.IsVariationPriced() && hasVariations {
+	if _, _, hasVariations := product.VariationPriceRange(); (product.IsVariationPriced() && hasVariations) || product.HasCombinations() {
 		basePrice = 0
 	}
 
@@ -349,6 +349,43 @@ func (s *Service) GetPricedItem(ctx context.Context, branchID, productID string,
 	}
 	for _, f := range flavours {
 		out.UnitPriceCents += f.PriceDelta
+	}
+
+	/*
+	 * A product sold by option sets: the variation choices must be one of its
+	 * rows, and that row must be On. The row's typed price replaces the sum of
+	 * the options; with no typed price the sum stands (store prices included,
+	 * since the deltas above are already branch-resolved). Either way the
+	 * options' own deltas are zeroed on the snapshot so the line carries the
+	 * row price once — the cart re-adds deltas when it totals a line.
+	 *
+	 * A choice that is not a sellable row is reported as unavailable rather
+	 * than as an error, so a cart line whose row was switched off after it was
+	 * added shows as unavailable instead of breaking the cart.
+	 */
+	if product.HasCombinations() {
+		chosen := make([]string, 0, len(flavours))
+		var optionSum int64
+		for _, f := range flavours {
+			chosen = append(chosen, f.ID)
+			optionSum += f.PriceDelta
+		}
+		row := product.FindCombination(chosen)
+		if row == nil || !row.IsActive {
+			out.Available = false
+			out.AvailableReason = catalogapi.ReasonCombinationUnavailable
+		} else {
+			price := optionSum
+			if row.PriceOverrideCents != nil {
+				price = *row.PriceOverrideCents
+			}
+			out.UnitPriceCents += price - optionSum
+			id, name := row.ID, product.CombinationLabel(*row)
+			out.CombinationID, out.CombinationName = &id, &name
+		}
+		for i := range flavours {
+			flavours[i].PriceDelta = 0
+		}
 	}
 
 	addons, err := resolveGroup(func(g *catalogapi.ModifierGroup) bool {

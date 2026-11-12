@@ -61,6 +61,8 @@ func MountAdmin(admin chi.Router, h *Handler) {
 		pr.Patch("/{id}", h.UpdateProduct)
 		pr.Delete("/{id}", h.DeleteProduct)
 		pr.Put("/{id}/modifiers", h.SetProductModifiers)
+		pr.Get("/{id}/combinations", h.GetProductCombinations)
+		pr.Put("/{id}/combinations", h.SetProductCombinations)
 	})
 
 	// Image upload is mounted here rather than in its own service: every

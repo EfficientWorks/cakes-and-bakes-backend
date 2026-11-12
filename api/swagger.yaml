@@ -1204,6 +1204,44 @@ definitions:
       isActive:
         type: boolean
     type: object
+  services_catalog_internal_api.adminCombinationDTO:
+    properties:
+      autoPriceCents:
+        description: |-
+          AutoPriceCents is the sum of the options' prices; PriceCents is the
+          price staff typed, null when the row uses the automatic price.
+        type: integer
+      effectivePriceCents:
+        type: integer
+      id:
+        type: string
+      isActive:
+        type: boolean
+      isValid:
+        type: boolean
+      label:
+        description: |-
+          Label is "8 Inch | Vanilla Eggless | Vanilla Fresh Cream"; empty when
+          the row no longer matches the product's option sets (isValid false).
+        type: string
+      optionIds:
+        items:
+          type: string
+        type: array
+      priceCents:
+        type: integer
+    type: object
+  services_catalog_internal_api.adminCombinationsResponse:
+    properties:
+      combinations:
+        items:
+          $ref: '#/definitions/services_catalog_internal_api.adminCombinationDTO'
+        type: array
+      optionSets:
+        items:
+          $ref: '#/definitions/services_catalog_internal_api.combinationOptionSetDTO'
+        type: array
+    type: object
   services_catalog_internal_api.adminStorePriceDTO:
     properties:
       priceCents:
@@ -1283,6 +1321,44 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  services_catalog_internal_api.combinationOptionDTO:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      priceCents:
+        type: integer
+    type: object
+  services_catalog_internal_api.combinationOptionSetDTO:
+    properties:
+      displayName:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/services_catalog_internal_api.combinationOptionDTO'
+        type: array
+    type: object
+  services_catalog_internal_api.combinationRowRequest:
+    properties:
+      isActive:
+        example: true
+        type: boolean
+      optionIds:
+        description: One option id from each option set on the product.
+        items:
+          type: string
+        type: array
+      priceCents:
+        description: Omit or send null for the automatic price (sum of the options'
+          prices).
+        example: 3499
+        type: integer
     type: object
   services_catalog_internal_api.contentRequest:
     properties:
@@ -1928,6 +2004,13 @@ definitions:
         description: active (default) | inactive
         example: active
         type: string
+    type: object
+  services_catalog_internal_api.setCombinationsRequest:
+    properties:
+      combinations:
+        items:
+          $ref: '#/definitions/services_catalog_internal_api.combinationRowRequest'
+        type: array
     type: object
   services_catalog_internal_api.sortOptionDTO:
     properties:
@@ -9963,6 +10046,87 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a master-catalogue product
+      tags:
+      - admin-catalogue
+  /admin/products/{id}/combinations:
+    get:
+      description: 'The Variations Set screen: the variation groups (option sets)
+        the product carries with each option''s price, and every combination row with
+        its automatic price (sum of its options), the typed price if any, and On/Off.
+        Rows that no longer match the product''s option sets come back with isValid
+        false.'
+      parameters:
+      - description: Product id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_catalog_internal_api.adminCombinationsResponse'
+              type: object
+        "404":
+          description: NOT_FOUND
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - BearerAuth: []
+      summary: A product's option-set combinations
+      tags:
+      - admin-catalogue
+    put:
+      consumes:
+      - application/json
+      description: 'Saves the Variations Set table as a whole: rows sent are kept
+        (matched by their options, so ids survive), rows left out are deleted. Attach
+        the option sets first with PUT /admin/products/{id}/modifiers — every row
+        needs exactly one option from each variation group the product carries. An
+        empty list removes every row and the product is priced the old way again.
+        No stock is tracked; isActive false hides a row everywhere.'
+      parameters:
+      - description: Product id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Rows
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services_catalog_internal_api.setCombinationsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_catalog_internal_api.adminCombinationsResponse'
+              type: object
+        "400":
+          description: INVALID_COMBINATION | DUPLICATE_COMBINATION | INVALID_PRICE
+            | TOO_MANY_COMBINATIONS
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+        "404":
+          description: NOT_FOUND
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Replace a product's option-set combinations
       tags:
       - admin-catalogue
   /admin/products/{id}/modifiers:

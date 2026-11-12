@@ -4,9 +4,12 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"bakehouse/services/franchise/franchiseapi"
 )
 
-var ErrNotFound = errors.New("not found")
+// ErrNotFound is franchiseapi.ErrNotFound, so other services can match it.
+var ErrNotFound = franchiseapi.ErrNotFound
 
 // IsDuplicateKey reports whether an error is a unique-constraint violation.
 //
