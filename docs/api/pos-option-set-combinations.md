@@ -35,7 +35,7 @@ Each product may now carry:
 
 - **Omitted** for products not sold by combination — those work exactly as before.
 - Only combinations that are **on sale** are listed. Anything not in the list must not be offered.
-- `optionIds` are ids from the product's `modifierGroups` whose `kind` is `"variation"` — one per variation group, in no particular order.
+- `optionIds` are ids from the product's `modifierGroups` whose `kind` is `"variation"` — at most one per variation group, in no particular order. **A row may use only some groups**: e.g. `8 Inch | Vanilla Eggless | Butter Cream` next to `10 Inch | Vanilla Eggless` when only the 8″ vanilla offers a filling.
 - `priceCents` is the full price of that combination before add-ons. It is already resolved for the store (store prices applied).
 - `minPriceCents` / `maxPriceCents` on the product are the cheapest / dearest combination, so a grid tile can show "From £29.99".
 - On the list endpoint, `modifierGroups` and `combinations` are now included for these products so the grid has what it needs.
@@ -54,9 +54,9 @@ No new fields. Send the line as today:
 
 1. **Product grid**: for a product with `combinations`, show "From £{minPriceCents}".
 2. **Tap product → options sheet**: one row of buttons per variation group (group name as the heading, e.g. "Size", "Sponge", "Flavour of cream"), then add-on groups as today.
-3. **Only allow real combinations**: a button is enabled only if some combination contains it together with what is already chosen in the other groups. Changing an earlier choice clears later choices that no longer fit.
-4. **Price**: show "From £X" until one option from every variation group is chosen, then the matched combination's `priceCents` (+ add-ons) × quantity.
-5. **Add to order** is disabled until a full combination is chosen.
+3. **Only allow real combinations**: go through the variation groups in order. Show a group only if some combination that fits the earlier choices has an option from it (e.g. Filling appears only after 8 Inch + Vanilla Eggless). Enable a button only if some combination contains it together with the earlier choices. Changing an earlier choice clears later choices that no longer fit or whose group is now hidden.
+4. **Price**: show "From £X" until the chosen options match a combination **exactly** (same options, no more, no fewer), then that combination's `priceCents` (+ add-ons) × quantity.
+5. **Add to order** is disabled until the choice matches a combination exactly. Send only the chosen options of the groups that are shown.
 6. **Order line / receipt**: product name, then the combination label (or the chosen option names joined with " | "), then add-ons.
 
 ## KDS

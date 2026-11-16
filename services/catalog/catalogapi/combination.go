@@ -72,25 +72,79 @@ func (p Product) variationIndex() (map[string]variationRef, int) {
 	return idx, groups
 }
 
-// combinationRefs resolves a row's options, or returns false when the row no
-// longer describes a valid choice: an option was removed, two options come
-// from the same group, or a variation group has no option in the row.
+// combinationRefs resolves a row's options in group order, or returns false
+// when the row no longer describes a valid choice: it is empty, an option was
+// removed, or two options come from the same group.
+//
+// A row need not use every option set: "8 Inch | Vanilla | Butter Cream" can
+// sit beside "10 Inch | Vanilla" when only the first offers a filling. The
+// customer's choice has to match a row exactly, which is what keeps that
+// unambiguous.
 func (p Product) combinationRefs(c ProductCombination) ([]variationRef, bool) {
 	idx, groups := p.variationIndex()
-	if groups == 0 || len(c.OptionIDs) != groups {
+	if groups == 0 || len(c.OptionIDs) == 0 || len(c.OptionIDs) > groups {
 		return nil, false
 	}
-	refs := make([]variationRef, groups)
-	filled := make([]bool, groups)
+	byGroup := make([]*variationRef, groups)
 	for _, id := range c.OptionIDs {
 		ref, ok := idx[strings.ToLower(id)]
-		if !ok || filled[ref.group] {
+		if !ok || byGroup[ref.group] != nil {
 			return nil, false
 		}
-		refs[ref.group] = ref
-		filled[ref.group] = true
+		r := ref
+		byGroup[ref.group] = &r
+	}
+	refs := make([]variationRef, 0, len(c.OptionIDs))
+	for _, r := range byGroup {
+		if r != nil {
+			refs = append(refs, *r)
+		}
 	}
 	return refs, true
+}
+
+// CombinationProblem explains why a row is not valid, naming the option sets
+// involved ("more than one option from Size"), or "" when it is valid. It is what
+// the console shows, so a refused save says which set is missing.
+func (p Product) CombinationProblem(c ProductCombination) string {
+	idx, _ := p.variationIndex()
+	var groups []*ModifierGroup
+	for gi := range p.ModifierGroups {
+		g := &p.ModifierGroups[gi]
+		if g.Kind == ModifierKindVariation && len(g.Options) > 0 {
+			groups = append(groups, g)
+		}
+	}
+	if len(groups) == 0 {
+		return "this product has no option sets attached"
+	}
+	name := func(g *ModifierGroup) string {
+		if strings.TrimSpace(g.DisplayName) != "" {
+			return g.DisplayName
+		}
+		return g.Name
+	}
+	count := make([]int, len(groups))
+	for _, id := range c.OptionIDs {
+		ref, ok := idx[strings.ToLower(id)]
+		if !ok {
+			return "an option in it is not in any option set on this product (removed or inactive)"
+		}
+		count[ref.group]++
+	}
+	if len(c.OptionIDs) == 0 {
+		return "it has no options"
+	}
+	var doubled []string
+	for i, g := range groups {
+		if count[i] > 1 {
+			doubled = append(doubled, name(g))
+		}
+	}
+	if len(doubled) > 0 {
+		return "more than one option from " + strings.Join(doubled, ", ")
+	}
+	return ""
 }
 
 // CombinationValid reports whether every option in the row still exists and

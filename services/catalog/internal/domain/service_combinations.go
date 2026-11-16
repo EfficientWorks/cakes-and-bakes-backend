@@ -35,8 +35,8 @@ func (s *Service) ProductCombinations(ctx context.Context, claims *auth.StaffCla
 
 // SetProductCombinations replaces a product's option-set rows.
 //
-// Each row must hold exactly one option from every variation group the
-// product carries right now — so the console attaches the option sets first
+// Each row holds at most one option from each variation group the product
+// carries right now (a row may use only some of them) — so the console attaches the option sets first
 // (PUT /admin/products/{id}/modifiers) and saves the rows second. An empty
 // list removes every row and the product goes back to being priced the old
 // way.
@@ -67,9 +67,10 @@ func (s *Service) SetProductCombinations(ctx context.Context, claims *auth.Staff
 				WithFields(apperr.FieldError{Field: field + ".priceCents", Code: "MIN", Message: "Price cannot be negative."})
 		}
 		if !p.CombinationValid(c) {
+			problem := p.CombinationProblem(c)
 			return nil, apperr.New("INVALID_COMBINATION", apperr.CategoryValidation,
-				"Each combination needs exactly one option from every option set on this product.").
-				WithFields(apperr.FieldError{Field: field + ".optionIds", Code: "INVALID", Message: "Choose one option from each option set."})
+				"Combination "+itoa(i+1)+" is not valid: "+problem+". A combination takes at most one option from each option set on this product.").
+				WithFields(apperr.FieldError{Field: field + ".optionIds", Code: "INVALID", Message: "Use at most one option from each option set (" + problem + ")."})
 		}
 		key := ""
 		for _, id := range c.OptionIDs {

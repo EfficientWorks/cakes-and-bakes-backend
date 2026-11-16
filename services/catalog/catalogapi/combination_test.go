@@ -47,8 +47,11 @@ func TestCombination_Validity(t *testing.T) {
 		t.Fatal("two options from one group must be invalid")
 	}
 	sizeOnly := ProductCombination{OptionIDs: []string{"s8"}}
-	if p.CombinationValid(sizeOnly) {
-		t.Fatal("a row missing a group must be invalid")
+	if !p.CombinationValid(sizeOnly) {
+		t.Fatal("a row may use only some option sets")
+	}
+	if p.CombinationValid(ProductCombination{}) {
+		t.Fatal("an empty row must be invalid")
 	}
 	withAddon := ProductCombination{OptionIDs: NormaliseOptionIDs([]string{"s8", "ve", "c"})}
 	if p.CombinationValid(withAddon) {
@@ -88,5 +91,44 @@ func TestCombination_FindAndLabel(t *testing.T) {
 	}
 	if got := p.VariationOptionIDs([]string{"c", "s8", "ve"}); len(got) != 2 {
 		t.Fatalf("add-on ids are filtered out, got %v", got)
+	}
+}
+
+func TestCombination_Problem(t *testing.T) {
+	p := comboProduct()
+	p.ModifierGroups[0].Name = "Size"
+	p.ModifierGroups[1].DisplayName = "Sponge"
+	if got := p.CombinationProblem(ProductCombination{OptionIDs: []string{"s8"}}); got != "" {
+		t.Fatalf("a row using only some sets is fine, got %q", got)
+	}
+	if got := p.CombinationProblem(ProductCombination{OptionIDs: []string{"s8", "s10", "ve"}}); got != "more than one option from Size" {
+		t.Fatalf("doubled set named, got %q", got)
+	}
+	if got := p.CombinationProblem(p.Combinations[0]); got != "" {
+		t.Fatalf("valid row has no problem, got %q", got)
+	}
+}
+
+func TestCombination_PartialRows(t *testing.T) {
+	p := comboProduct()
+	// Only 8 Inch offers a sponge choice; 10 Inch is sold on its own.
+	p.Combinations = []ProductCombination{
+		{ID: "x", OptionIDs: NormaliseOptionIDs([]string{"s8", "rv"}), IsActive: true},
+		{ID: "y", OptionIDs: []string{"s10"}, IsActive: true},
+	}
+	if row := p.FindCombination([]string{"s10"}); row == nil || row.ID != "y" {
+		t.Fatalf("size-only choice matches the size-only row, got %+v", row)
+	}
+	if p.FindCombination([]string{"s8"}) != nil {
+		t.Fatal("8 Inch alone is not a row: the sponge must be chosen")
+	}
+	if p.FindCombination([]string{"s10", "ve"}) != nil {
+		t.Fatal("a choice with an extra option must not match a shorter row")
+	}
+	if got := p.CombinationAutoPrice(p.Combinations[1]); got != 3999 {
+		t.Fatalf("auto price of a partial row sums its own options, got %d", got)
+	}
+	if got := p.CombinationLabel(p.Combinations[0]); got != "8 Inch | Red Velvet with Egg" {
+		t.Fatalf("label, got %q", got)
 	}
 }

@@ -229,7 +229,11 @@ func (s *Service) GetPricedItem(ctx context.Context, branchID, productID string,
 			n := perGroup[g.ID]
 			// Use the group's own IsRequired rather than a caller-supplied flag:
 			// the group itself knows whether a selection is mandatory.
-			if g.IsRequired && g.MinSelect > 0 && n < g.MinSelect {
+			// For a product sold by combination the row match below is the check:
+			// a row may use only some option sets, so a set it does not use must
+			// not be demanded here.
+			comboVariation := product.HasCombinations() && g.Kind == catalogapi.ModifierKindVariation
+			if g.IsRequired && g.MinSelect > 0 && n < g.MinSelect && !comboVariation {
 				return nil, apperr.New("MODIFIER_REQUIRED", apperr.CategoryValidation, g.Name+" requires at least "+itoa(g.MinSelect)+" selection(s).").
 					WithFields(apperr.FieldError{Field: g.Type, Code: "MIN_SELECT", Message: g.Name + " is required."})
 			}

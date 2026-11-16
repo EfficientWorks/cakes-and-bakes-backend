@@ -6977,7 +6977,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Saves the Variations Set table as a whole: rows sent are kept (matched by their options, so ids survive), rows left out are deleted. Attach the option sets first with PUT /admin/products/{id}/modifiers — every row needs exactly one option from each variation group the product carries. An empty list removes every row and the product is priced the old way again. No stock is tracked; isActive false hides a row everywhere.",
+                "description": "Saves the Variations Set table as a whole: rows sent are kept (matched by their options, so ids survive), rows left out are deleted. Attach the option sets first with PUT /admin/products/{id}/modifiers — a row holds at most one option from each variation group the product carries (a row may use only some of them, e.g. only one size offers a filling); the customer must then match a row exactly. An empty list removes every row and the product is priced the old way again. No stock is tracked; isActive false hides a row everywhere.",
                 "consumes": [
                     "application/json"
                 ],
