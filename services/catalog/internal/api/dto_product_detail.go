@@ -116,6 +116,9 @@ type productDetailDTOType struct {
 	// Cream): only the rows on sale, each with its price. A choice that is
 	// not in this list cannot be bought. Empty for every other product.
 	Combinations []storefrontCombinationDTO `json:"combinations"`
+	// SellingStoreIDs are the stores that sell this product (product and its
+	// category both switched on there). Filled on the storefront endpoints.
+	SellingStoreIDs []string `json:"sellingStoreIds,omitempty"`
 }
 
 func productDetailDTO(p *domain.ProductWithAvailability, similar []catalogapi.Product) productDetailDTOType {

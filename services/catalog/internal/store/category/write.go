@@ -35,12 +35,14 @@ func (s *Repo) CreateCategory(
 			available_from,
 			available_until,
 			color_code,
-			business_id
+			business_id,
+			is_accessories
 		)
 		VALUES (
 			$1,$2,$3,$4,$5,$6,
 			COALESCE($7, true),
-			$8,$9,$10,$11
+			$8,$9,$10,$11,
+			COALESCE($12, false)
 		)
 		RETURNING
 			id,
@@ -53,7 +55,8 @@ func (s *Repo) CreateCategory(
 			is_active,
 			available_from,
 			available_until,
-			color_code`
+			color_code,
+			is_accessories`
 
 	c, _, err := scanCategoryAdmin(
 		tx.QueryRow(
@@ -70,6 +73,7 @@ func (s *Repo) CreateCategory(
 			w.AvailableUntil,
 			w.ColorCode,
 			tenant.BusinessParam(ctx),
+			w.IsAccessories,
 		),
 	)
 
@@ -139,7 +143,8 @@ func (s *Repo) UpdateCategory(
 		       is_active = COALESCE($8, is_active),
 		       available_from = $9,
 		       available_until = $10,
-		       color_code = $11
+		       color_code = $11,
+		       is_accessories = COALESCE($13, is_accessories)
 		 WHERE id = $1 AND business_id IS NOT DISTINCT FROM $12
 		 RETURNING
 			id,
@@ -152,7 +157,8 @@ func (s *Repo) UpdateCategory(
 			is_active,
 			available_from,
 			available_until,
-			color_code`
+			color_code,
+			is_accessories`
 
 	_, _, err = scanCategoryAdmin(
 		tx.QueryRow(
@@ -170,6 +176,7 @@ func (s *Repo) UpdateCategory(
 			w.AvailableUntil,
 			w.ColorCode,
 			tenant.BusinessParam(ctx),
+			w.IsAccessories,
 		),
 	)
 

@@ -65,9 +65,10 @@ func categoryAdminDTO(row *store.CategoryRow) categoryAdminDTOType {
 	return categoryAdminDTOType{
 		ID: row.Category.ID, Name: row.Category.Name, Slug: row.Category.Slug,
 		Description: row.Category.Description, ImageURL: row.Category.ImageURL,
-		ImageAltText: row.Category.ImageAltText,
-		ColorCode:    row.Category.ColorCode,
-		SortOrder:    row.Category.SortOrder, IsActive: row.Category.IsActive,
+		ImageAltText:  row.Category.ImageAltText,
+		ColorCode:     row.Category.ColorCode,
+		IsAccessories: row.Category.IsAccessories,
+		SortOrder:     row.Category.SortOrder, IsActive: row.Category.IsActive,
 		AvailableFrom:  formatDatePtr(row.Schedule.AvailableFrom),
 		AvailableUntil: formatDatePtr(row.Schedule.AvailableUntil),
 		BranchIds:      orEmpty(row.BranchIds),

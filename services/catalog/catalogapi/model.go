@@ -36,6 +36,9 @@ type Category struct {
 	ColorCode    *string
 	SortOrder    int
 	IsActive     bool
+	// IsAccessories marks a category of extras (candles, toppers) the website
+	// offers after Add to Basket and in the basket.
+	IsAccessories bool
 }
 
 type ProductImage struct {
@@ -398,7 +401,9 @@ type CategoryWrite struct {
 	ImageURL     *string
 	ImageAltText *string
 	ColorCode    *string
-	SortOrder    int
+	// IsAccessories: nil leaves it as it is on an update, false at create.
+	IsAccessories *bool
+	SortOrder     int
 	// Nil means "leave as it is" on an update, and defaults to on at create.
 	// A plain bool made every partial update that omitted the field re-show a
 	// category somebody had deliberately hidden.

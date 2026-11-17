@@ -132,3 +132,19 @@ func TestCombination_PartialRows(t *testing.T) {
 		t.Fatalf("label, got %q", got)
 	}
 }
+
+func TestCombination_FromPriceSkipsZero(t *testing.T) {
+	p := comboProduct()
+	zero := int64(0)
+	p.Combinations = []ProductCombination{
+		{ID: "z", OptionIDs: NormaliseOptionIDs([]string{"s8", "ve"}), IsActive: true, PriceOverrideCents: &zero},
+		{ID: "a", OptionIDs: NormaliseOptionIDs([]string{"s10", "ve"}), IsActive: true},
+	}
+	if lo, hi, _ := p.CombinationPriceRange(); lo != 3999 || hi != 3999 {
+		t.Fatalf("a £0 row is not the From price: want 3999–3999, got %d–%d", lo, hi)
+	}
+	p.Combinations = p.Combinations[:1]
+	if lo, _, ok := p.CombinationPriceRange(); lo != 0 || !ok {
+		t.Fatalf("every row £0 means From £0, got %d ok=%v", lo, ok)
+	}
+}

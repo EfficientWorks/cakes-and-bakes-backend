@@ -17289,6 +17289,10 @@ const docTemplate = `{
                 "imageUrl": {
                     "type": "string"
                 },
+                "isAccessories": {
+                    "description": "IsAccessories marks candles/toppers-style extras the website offers\nafter Add to Basket. Omit to leave unchanged.",
+                    "type": "boolean"
+                },
                 "isActive": {
                     "type": "boolean"
                 },
@@ -17771,6 +17775,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "id": {
+                    "description": "ID is the saved option this row edits; omit it for a new option. Kept\nids keep product combination rows and baskets that use the option valid.",
+                    "type": "string"
                 },
                 "imageUrl": {
                     "type": "string"

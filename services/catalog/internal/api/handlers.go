@@ -400,7 +400,9 @@ func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.OK(w, productDetailDTO(product, similar))
+	dto := productDetailDTO(product, similar)
+	dto.SellingStoreIDs = h.svc.SellingStoreIDs(r.Context(), &product.Product)
+	httpx.OK(w, dto)
 }
 
 // @Summary		Get one product with its options and availability by branch
@@ -426,7 +428,9 @@ func (h *Handler) GetProductByBranchId(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.OK(w, productDetailDTO(product, similar))
+	dto := productDetailDTO(product, similar)
+	dto.SellingStoreIDs = h.svc.SellingStoreIDs(r.Context(), &product.Product)
+	httpx.OK(w, dto)
 }
 
 // @Summary		Get site content blocks by key

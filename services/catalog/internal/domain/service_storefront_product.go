@@ -204,3 +204,25 @@ func toLocalDate(t time.Time, tz string) time.Time {
 	lt := t.In(loc)
 	return time.Date(lt.Year(), lt.Month(), lt.Day(), 0, 0, 0, 0, time.UTC)
 }
+
+// SellingStoreIDs lists the stores that sell this product today: the product
+// is switched on there and so is its category. The website adds a line
+// against one of these when the shopper has not chosen a store yet — the
+// store and the time are chosen in the basket and at checkout.
+func (s *Service) SellingStoreIDs(ctx context.Context, p *catalogapi.Product) []string {
+	row, err := s.store.GetCategoryAdmin(ctx, p.CategoryID)
+	if err != nil || row == nil {
+		return []string{}
+	}
+	categoryOn := make(map[string]bool, len(row.BranchIds))
+	for _, id := range row.BranchIds {
+		categoryOn[id] = true
+	}
+	out := []string{}
+	for _, id := range p.BranchIds {
+		if categoryOn[id] {
+			out = append(out, id)
+		}
+	}
+	return out
+}

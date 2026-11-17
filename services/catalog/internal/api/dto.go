@@ -21,13 +21,15 @@ type categoryDTOType struct {
 	ImageURL     *string `json:"imageUrl"`
 	ImageAltText *string `json:"imageAltText"`
 	ColorCode    *string `json:"colorCode"`
+	// IsAccessories: candles, toppers and other extras the basket offers.
+	IsAccessories bool `json:"isAccessories"`
 }
 
 func categoryDTO(c *catalogapi.Category) categoryDTOType {
 	return categoryDTOType{
 		ID: c.ID, Name: c.Name, Slug: c.Slug, Description: c.Description,
 		ImageURL: c.ImageURL, ImageAltText: c.ImageAltText,
-		ColorCode: c.ColorCode,
+		ColorCode: c.ColorCode, IsAccessories: c.IsAccessories,
 	}
 }
 

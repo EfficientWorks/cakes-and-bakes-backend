@@ -205,18 +205,23 @@ func (p Product) SellableCombinations() []ProductCombination {
 
 // CombinationPriceRange is the cheapest and dearest sellable row. ok is false
 // when no row can be sold.
+//
+// The cheapest is the lowest price above zero: a row nobody has priced yet
+// (£0.00) must not make the shop say "From £0.00". Only when every row is
+// £0.00 is the minimum zero.
 func (p Product) CombinationPriceRange() (minCents, maxCents int64, ok bool) {
+	var minPositive int64
 	for i, c := range p.SellableCombinations() {
 		price := p.CombinationPrice(c)
-		if i == 0 || price < minCents {
-			minCents = price
+		if price > 0 && (minPositive == 0 || price < minPositive) {
+			minPositive = price
 		}
 		if i == 0 || price > maxCents {
 			maxCents = price
 		}
 		ok = true
 	}
-	return minCents, maxCents, ok
+	return minPositive, maxCents, ok
 }
 
 // FindCombination returns the valid row made of exactly these variation

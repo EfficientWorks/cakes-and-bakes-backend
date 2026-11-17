@@ -51,6 +51,7 @@ type categoryAdminDTOType struct {
 	ImageURL       *string  `json:"imageUrl"`
 	ImageAltText   *string  `json:"imageAltText,omitempty"`
 	ColorCode      *string  `json:"colorCode"`
+	IsAccessories  bool     `json:"isAccessories"`
 	SortOrder      int      `json:"sortOrder"`
 	IsActive       bool     `json:"isActive"`
 	AvailableFrom  *string  `json:"availableFrom"`
@@ -65,8 +66,11 @@ type categoryRequest struct {
 	ImageURL     *string `json:"imageUrl"`
 	ImageAltText *string `json:"imageAltText"`
 	ColorCode    *string `json:"colorCode"`
-	SortOrder    int     `json:"sortOrder"`
-	IsActive     *bool   `json:"isActive"`
+	// IsAccessories marks candles/toppers-style extras the website offers
+	// after Add to Basket. Omit to leave unchanged.
+	IsAccessories *bool `json:"isAccessories"`
+	SortOrder     int   `json:"sortOrder"`
+	IsActive      *bool `json:"isActive"`
 	// YYYY-MM-DD, datetime-local, ISO timestamp, or empty/null for "always on" (CAT-09).
 	AvailableFrom  *string  `json:"availableFrom"`
 	AvailableUntil *string  `json:"availableUntil"`
@@ -80,7 +84,7 @@ func (r categoryRequest) toWrite() catalogapi.CategoryWrite {
 	return catalogapi.CategoryWrite{
 		Name: r.Name, Slug: r.Slug, Description: r.Description,
 		ImageURL: r.ImageURL, ImageAltText: r.ImageAltText,
-		ColorCode: r.ColorCode,
+		ColorCode: r.ColorCode, IsAccessories: r.IsAccessories,
 		SortOrder: r.SortOrder, IsActive: r.IsActive,
 		AvailableFrom:  parseAdminDatePtr(r.AvailableFrom),
 		AvailableUntil: parseAdminDatePtr(r.AvailableUntil),
@@ -266,6 +270,9 @@ type modifierGroupRequestAdmin struct {
 }
 
 type modifierOptionRequestItem struct {
+	// ID is the saved option this row edits; omit it for a new option. Kept
+	// ids keep product combination rows and baskets that use the option valid.
+	ID              string                      `json:"id"`
 	Name            string                      `json:"name"`
 	PriceDeltaCents int64                       `json:"priceDeltaCents"`
 	IsPreSelected   bool                        `json:"isPreSelected"`
@@ -296,7 +303,7 @@ func (req modifierGroupRequestAdmin) toGroup(id string) catalogapi.ModifierGroup
 			})
 		}
 		options = append(options, catalogapi.ModifierOption{
-			Name: o.Name, PriceDeltaCents: o.PriceDeltaCents, IsPreSelected: o.IsPreSelected,
+			ID: o.ID, Name: o.Name, PriceDeltaCents: o.PriceDeltaCents, IsPreSelected: o.IsPreSelected,
 			ImageURL: o.ImageURL, IsGlutenFree: o.IsGlutenFree, AllergenFlags: o.AllergenFlags,
 			StorePrices: storePrices,
 		})

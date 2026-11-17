@@ -113,11 +113,6 @@ func (s *Repo) ListModifierGroups(ctx context.Context) ([]catalogapi.ModifierGro
 	return groups, linkRows.Err()
 }
 
-// SaveModifierGroup upserts a group and replaces its options wholesale.
-//
-// Replace rather than diff: an option carries no meaning beyond its group, and
-// orders snapshot the option values they captured rather than referencing
-// them, so rewriting the set cannot rewrite history.
 // ModifierGroupIDsForBranches returns the modifier groups used by at least one
 // product sold at any of the given branches: an enabled branch_product_rules
 // row, in a category the branch has enabled. Groups reach a product either

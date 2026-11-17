@@ -13,7 +13,7 @@ func scanCategoryAdmin(row pgx.Row) (*catalogapi.Category, *catalogapi.CategoryW
 	var c catalogapi.Category
 	var w catalogapi.CategoryWrite
 	err := row.Scan(&c.ID, &c.Name, &c.Slug, &c.Description, &c.ImageURL, &c.ImageAltText,
-		&c.SortOrder, &c.IsActive, &w.AvailableFrom, &w.AvailableUntil, &c.ColorCode)
+		&c.SortOrder, &c.IsActive, &w.AvailableFrom, &w.AvailableUntil, &c.ColorCode, &c.IsAccessories)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, shared.ErrNotFound
 	}

@@ -5,7 +5,7 @@ package category
 // round trip.
 const categoryAdminList = `
 	SELECT pc.id, pc.name, pc.slug, pc.description, pc.image_url, pc.image_alt_text,
-	       pc.sort_order, pc.is_active, pc.available_from, pc.available_until, pc.color_code,
+	       pc.sort_order, pc.is_active, pc.available_from, pc.available_until, pc.color_code, pc.is_accessories,
 	       COALESCE(ARRAY_AGG(bcr.branch_id ORDER BY bcr.branch_id)
 	                FILTER (WHERE bcr.branch_enabled = true), '{}') AS branch_ids
 	FROM product_categories pc
@@ -14,13 +14,13 @@ const categoryAdminList = `
 
 const categoryAdminGroupBy = `
 	GROUP BY pc.id, pc.name, pc.slug, pc.description, pc.image_url, pc.image_alt_text,
-	         pc.sort_order, pc.is_active, pc.available_from, pc.available_until, pc.color_code`
+	         pc.sort_order, pc.is_active, pc.available_from, pc.available_until, pc.color_code, pc.is_accessories`
 
 // categoryMappedToBranches keeps only categories enabled at one of the given
 // branches — what a branch login is allowed to see in the console.
 const categoryMappedToBranches = `
 	SELECT pc.id, pc.name, pc.slug, pc.description, pc.image_url, pc.image_alt_text,
-	       pc.sort_order, pc.is_active, pc.available_from, pc.available_until, pc.color_code,
+	       pc.sort_order, pc.is_active, pc.available_from, pc.available_until, pc.color_code, pc.is_accessories,
 	       COALESCE(ARRAY_AGG(bcr.branch_id ORDER BY bcr.branch_id)
 	                FILTER (WHERE bcr.branch_enabled = true), '{}') AS branch_ids
 	FROM product_categories pc

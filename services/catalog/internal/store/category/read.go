@@ -13,7 +13,7 @@ import (
 
 func (s *Repo) ListCategories(ctx context.Context) ([]catalogapi.Category, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, name, slug, description, image_url, image_alt_text, sort_order, is_active, color_code
+		SELECT id, name, slug, description, image_url, image_alt_text, sort_order, is_active, color_code, is_accessories
 		FROM product_categories
 		 WHERE is_active = true AND business_id IS NOT DISTINCT FROM $1
 		 ORDER BY sort_order`, tenant.BusinessParam(ctx))
@@ -26,7 +26,7 @@ func (s *Repo) ListCategories(ctx context.Context) ([]catalogapi.Category, error
 	for rows.Next() {
 		var c catalogapi.Category
 		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.Description,
-			&c.ImageURL, &c.ImageAltText, &c.SortOrder, &c.IsActive, &c.ColorCode); err != nil {
+			&c.ImageURL, &c.ImageAltText, &c.SortOrder, &c.IsActive, &c.ColorCode, &c.IsAccessories); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -40,7 +40,7 @@ func (s *Repo) ListCategories(ctx context.Context) ([]catalogapi.Category, error
 // till, so it is left out.
 func (s *Repo) ListCategoriesForBranch(ctx context.Context, branchID string) ([]catalogapi.Category, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT c.id, c.name, c.slug, c.description, c.image_url, c.image_alt_text, c.sort_order, c.is_active, c.color_code
+		SELECT c.id, c.name, c.slug, c.description, c.image_url, c.image_alt_text, c.sort_order, c.is_active, c.color_code, c.is_accessories
 		  FROM product_categories c
 		  JOIN branch_category_rules bcr ON bcr.category_id = c.id AND bcr.branch_id = $1 AND bcr.branch_enabled
 		 WHERE c.is_active = true AND c.business_id IS NOT DISTINCT FROM $2
@@ -58,7 +58,7 @@ func (s *Repo) ListCategoriesForBranch(ctx context.Context, branchID string) ([]
 	for rows.Next() {
 		var c catalogapi.Category
 		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.Description,
-			&c.ImageURL, &c.ImageAltText, &c.SortOrder, &c.IsActive, &c.ColorCode); err != nil {
+			&c.ImageURL, &c.ImageAltText, &c.SortOrder, &c.IsActive, &c.ColorCode, &c.IsAccessories); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -69,9 +69,9 @@ func (s *Repo) ListCategoriesForBranch(ctx context.Context, branchID string) ([]
 func (s *Repo) GetCategoryBySlug(ctx context.Context, slug string) (*catalogapi.Category, error) {
 	var c catalogapi.Category
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, name, slug, description, sort_order, is_active, image_url, image_alt_text, color_code
+		SELECT id, name, slug, description, sort_order, is_active, image_url, image_alt_text, color_code, is_accessories
 		FROM product_categories WHERE slug = $1 AND business_id IS NOT DISTINCT FROM $2`, slug, tenant.BusinessParam(ctx)).
-		Scan(&c.ID, &c.Name, &c.Slug, &c.Description, &c.SortOrder, &c.IsActive, &c.ImageURL, &c.ImageAltText, &c.ColorCode)
+		Scan(&c.ID, &c.Name, &c.Slug, &c.Description, &c.SortOrder, &c.IsActive, &c.ImageURL, &c.ImageAltText, &c.ColorCode, &c.IsAccessories)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, shared.ErrNotFound
 	}
@@ -81,9 +81,9 @@ func (s *Repo) GetCategoryBySlug(ctx context.Context, slug string) (*catalogapi.
 func (s *Repo) GetCategoryByID(ctx context.Context, id string) (*catalogapi.Category, error) {
 	var c catalogapi.Category
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, name, slug, description, image_url, image_alt_text, sort_order, is_active, color_code
+		SELECT id, name, slug, description, image_url, image_alt_text, sort_order, is_active, color_code, is_accessories
 		FROM product_categories WHERE id = $1 AND business_id IS NOT DISTINCT FROM $2`, id, tenant.BusinessParam(ctx)).
-		Scan(&c.ID, &c.Name, &c.Slug, &c.Description, &c.ImageURL, &c.ImageAltText, &c.SortOrder, &c.IsActive, &c.ColorCode)
+		Scan(&c.ID, &c.Name, &c.Slug, &c.Description, &c.ImageURL, &c.ImageAltText, &c.SortOrder, &c.IsActive, &c.ColorCode, &c.IsAccessories)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, shared.ErrNotFound
 	}
@@ -115,7 +115,7 @@ func (s *Repo) ListCategoriesAdmin(ctx context.Context, branchIDs []string) ([]C
 		var branchIDs []string
 		if err := rows.Scan(
 			&c.ID, &c.Name, &c.Slug, &c.Description, &c.ImageURL, &c.ImageAltText,
-			&c.SortOrder, &c.IsActive, &w.AvailableFrom, &w.AvailableUntil, &c.ColorCode,
+			&c.SortOrder, &c.IsActive, &w.AvailableFrom, &w.AvailableUntil, &c.ColorCode, &c.IsAccessories,
 			&branchIDs,
 		); err != nil {
 			return nil, err
@@ -133,7 +133,7 @@ func (s *Repo) GetCategoryAdmin(ctx context.Context, id string) (*CategoryRow, e
 	var branchIDs []string
 	err := s.pool.QueryRow(ctx, q, tenant.BusinessParam(ctx), id).Scan(
 		&c.ID, &c.Name, &c.Slug, &c.Description, &c.ImageURL, &c.ImageAltText,
-		&c.SortOrder, &c.IsActive, &w.AvailableFrom, &w.AvailableUntil, &c.ColorCode,
+		&c.SortOrder, &c.IsActive, &w.AvailableFrom, &w.AvailableUntil, &c.ColorCode, &c.IsAccessories,
 		&branchIDs,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
