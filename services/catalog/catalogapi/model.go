@@ -320,6 +320,9 @@ type ProductFilter struct {
 	Occasions []string
 	// TagIDs match ANY of the given seasonal tags (active ones only).
 	TagIDs []string
+	// FlavourSlugs match ANY of the given flavours (active ones only): the
+	// home page's flavour cards link here.
+	FlavourSlugs []string
 	// Dietary flags must ALL be present. Picking gluten-free and vegan means
 	// both, since these are restrictions rather than preferences.
 	Dietary []string

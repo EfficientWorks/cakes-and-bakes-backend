@@ -111,6 +111,7 @@ func (h *Handler) GetCategoryStorefront(w http.ResponseWriter, r *http.Request) 
 //	@Param			sponge			query		string	false	"Sponges (Chocolate, Vanilla, ...); repeated or comma-separated. Matches ANY; ANDed with colour"
 //	@Param			occasion		query		string	false	"Occasion tags; repeated or comma-separated. Matches ANY"
 //	@Param			tag				query		string	false	"Seasonal tag ids (from /storefront/seasonal-tags); repeated or comma-separated. Matches ANY"
+//	@Param			flavour			query		string	false	"Flavour slugs (from /storefront/flavours); repeated or comma-separated. Matches ANY"
 //	@Param			dietary			query		string	false	"Dietary flags; repeated or comma-separated. Matches ALL"
 //	@Param			minPriceCents	query		int		false	"Lowest starting price, in cents"
 //	@Param			maxPriceCents	query		int		false	"Highest starting price, in cents"
@@ -201,6 +202,7 @@ func parseProductFilter(q url.Values) (catalogapi.ProductFilter, error) {
 		CategorySlug:   strings.TrimSpace(q.Get("categorySlug")),
 		Occasions:      multiValue(q, "occasion"),
 		TagIDs:         multiValue(q, "tag"),
+		FlavourSlugs:   multiValue(q, "flavour"),
 		Dietary:        multiValue(q, "dietary"),
 		BestSellerOnly: q.Get("bestSeller") == "true",
 		Sort:           q.Get("sort"),

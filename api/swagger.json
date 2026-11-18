@@ -4491,6 +4491,254 @@
                 }
             }
         },
+        "/admin/flavours": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List flavours",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "active | inactive (default all)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name contains",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/services_catalog_internal_api.flavourDTOType"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "A home page flavour card with its products. Upload the photo first (POST /admin/images/upload-url) and send its URL as imageUrl.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Create a flavour",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services_catalog_internal_api.flavourRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_catalog_internal_api.flavourDTOType"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "FLAVOUR_NAME_TAKEN",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/flavours/{flavourId}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "With its mapped productIds.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get a flavour",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "flavourId",
+                        "name": "flavourId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_catalog_internal_api.flavourDTOType"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Replaces the flavour's fields (send them all). productIds replaces the mapped products when sent; omit it to leave them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update a flavour",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "flavourId",
+                        "name": "flavourId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services_catalog_internal_api.flavourRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services_catalog_internal_api.flavourDTOType"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "FLAVOUR_NAME_TAKEN",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes the flavour and unmaps its products. The products are kept.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Delete a flavour",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "flavourId",
+                        "name": "flavourId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/governance": {
             "get": {
                 "security": [
@@ -14394,6 +14642,41 @@
                 }
             }
         },
+        "/storefront/flavours": {
+            "get": {
+                "description": "The \"Discover our flavours\" cards: active flavours with at least one active product, in sortOrder. List a flavour's products with GET /storefront/products?flavour=\u003cslug\u003e.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "storefront"
+                ],
+                "summary": "Flavours for the home page",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/bakehouse_pkg_httpx.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/services_catalog_internal_api.flavourDTOType"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/storefront/orders": {
             "post": {
                 "description": "Places the order from the current cart. Optional `status` selects the status the order lands in (placed, confirmed, scheduled, in_production, ready, out_for_delivery, fulfilled); omitted = placed then auto-accepted as confirmed. Optional `startTime` (alias `placedAt`) and `endTime` are RFC3339 date-times from the client's clock, stored as the order's start_time / end_time; end_time is kept only when the order lands in a closing status.",
@@ -14745,6 +15028,12 @@
                         "type": "string",
                         "description": "Seasonal tag ids (from /storefront/seasonal-tags); repeated or comma-separated. Matches ANY",
                         "name": "tag",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Flavour slugs (from /storefront/flavours); repeated or comma-separated. Matches ANY",
+                        "name": "flavour",
                         "in": "query"
                     },
                     {
@@ -17555,6 +17844,105 @@
                     "items": {
                         "$ref": "#/definitions/services_catalog_internal_api.seasonalTagDTOType"
                     }
+                }
+            }
+        },
+        "services_catalog_internal_api.flavourDTOType": {
+            "type": "object",
+            "properties": {
+                "backgroundColour": {
+                    "description": "The card's tint, \"#RRGGBB\"; null lets the website choose.",
+                    "type": "string",
+                    "example": "#F8E8E8"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Rich sponges, drips and dark glazes for serious chocolate lovers."
+                },
+                "id": {
+                    "type": "string"
+                },
+                "imageAltText": {
+                    "type": "string"
+                },
+                "imageUrl": {
+                    "description": "The card's photo (an /admin/images upload URL) and its alt text.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Chocolate"
+                },
+                "productCount": {
+                    "description": "Products mapped to the flavour. Storefront: active ones only.",
+                    "type": "integer",
+                    "example": 6
+                },
+                "productIds": {
+                    "description": "Admin reads only: the mapped product ids.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "chocolate"
+                },
+                "sortOrder": {
+                    "description": "Cards are shown in ascending sortOrder, then by name.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "status": {
+                    "description": "active | inactive. An inactive flavour is not shown on the website.",
+                    "type": "string",
+                    "example": "active"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "services_catalog_internal_api.flavourRequest": {
+            "type": "object",
+            "properties": {
+                "backgroundColour": {
+                    "type": "string",
+                    "example": "#F8E8E8"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Rich sponges, drips and dark glazes for serious chocolate lovers."
+                },
+                "imageAltText": {
+                    "type": "string"
+                },
+                "imageUrl": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Chocolate"
+                },
+                "productIds": {
+                    "description": "Replaces the mapped products. Omit on an update to leave them as they\nare; [] unmaps them all.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sortOrder": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "status": {
+                    "description": "active (default) | inactive",
+                    "type": "string",
+                    "example": "active"
                 }
             }
         },

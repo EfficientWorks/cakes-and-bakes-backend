@@ -1502,6 +1502,80 @@ definitions:
           $ref: '#/definitions/services_catalog_internal_api.seasonalTagDTOType'
         type: array
     type: object
+  services_catalog_internal_api.flavourDTOType:
+    properties:
+      backgroundColour:
+        description: The card's tint, "#RRGGBB"; null lets the website choose.
+        example: '#F8E8E8'
+        type: string
+      createdAt:
+        type: string
+      description:
+        example: Rich sponges, drips and dark glazes for serious chocolate lovers.
+        type: string
+      id:
+        type: string
+      imageAltText:
+        type: string
+      imageUrl:
+        description: The card's photo (an /admin/images upload URL) and its alt text.
+        type: string
+      name:
+        example: Chocolate
+        type: string
+      productCount:
+        description: 'Products mapped to the flavour. Storefront: active ones only.'
+        example: 6
+        type: integer
+      productIds:
+        description: 'Admin reads only: the mapped product ids.'
+        items:
+          type: string
+        type: array
+      slug:
+        example: chocolate
+        type: string
+      sortOrder:
+        description: Cards are shown in ascending sortOrder, then by name.
+        example: 1
+        type: integer
+      status:
+        description: active | inactive. An inactive flavour is not shown on the website.
+        example: active
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  services_catalog_internal_api.flavourRequest:
+    properties:
+      backgroundColour:
+        example: '#F8E8E8'
+        type: string
+      description:
+        example: Rich sponges, drips and dark glazes for serious chocolate lovers.
+        type: string
+      imageAltText:
+        type: string
+      imageUrl:
+        type: string
+      name:
+        example: Chocolate
+        type: string
+      productIds:
+        description: |-
+          Replaces the mapped products. Omit on an update to leave them as they
+          are; [] unmaps them all.
+        items:
+          type: string
+        type: array
+      sortOrder:
+        example: 1
+        type: integer
+      status:
+        description: active (default) | inactive
+        example: active
+        type: string
+    type: object
   services_catalog_internal_api.imageDTOType:
     properties:
       altText:
@@ -8501,6 +8575,153 @@ paths:
       summary: Admin live updates (Server-Sent Events)
       tags:
       - admin
+  /admin/flavours:
+    get:
+      parameters:
+      - description: active | inactive (default all)
+        in: query
+        name: status
+        type: string
+      - description: Name contains
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/services_catalog_internal_api.flavourDTOType'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List flavours
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: A home page flavour card with its products. Upload the photo first
+        (POST /admin/images/upload-url) and send its URL as imageUrl.
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services_catalog_internal_api.flavourRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_catalog_internal_api.flavourDTOType'
+              type: object
+        "409":
+          description: FLAVOUR_NAME_TAKEN
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Create a flavour
+      tags:
+      - admin
+  /admin/flavours/{flavourId}:
+    delete:
+      description: Removes the flavour and unmaps its products. The products are kept.
+      parameters:
+      - description: flavourId
+        in: path
+        name: flavourId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Delete a flavour
+      tags:
+      - admin
+    get:
+      description: With its mapped productIds.
+      parameters:
+      - description: flavourId
+        in: path
+        name: flavourId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_catalog_internal_api.flavourDTOType'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get a flavour
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Replaces the flavour's fields (send them all). productIds replaces
+        the mapped products when sent; omit it to leave them.
+      parameters:
+      - description: flavourId
+        in: path
+        name: flavourId
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services_catalog_internal_api.flavourRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/services_catalog_internal_api.flavourDTOType'
+              type: object
+        "409":
+          description: FLAVOUR_NAME_TAKEN
+          schema:
+            $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Update a flavour
+      tags:
+      - admin
   /admin/governance:
     get:
       produces:
@@ -14866,6 +15087,27 @@ paths:
       summary: Website live updates (Server-Sent Events)
       tags:
       - storefront
+  /storefront/flavours:
+    get:
+      description: 'The "Discover our flavours" cards: active flavours with at least
+        one active product, in sortOrder. List a flavour''s products with GET /storefront/products?flavour=<slug>.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/bakehouse_pkg_httpx.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/services_catalog_internal_api.flavourDTOType'
+                  type: array
+              type: object
+      summary: Flavours for the home page
+      tags:
+      - storefront
   /storefront/orders:
     post:
       consumes:
@@ -15089,6 +15331,11 @@ paths:
           comma-separated. Matches ANY
         in: query
         name: tag
+        type: string
+      - description: Flavour slugs (from /storefront/flavours); repeated or comma-separated.
+          Matches ANY
+        in: query
+        name: flavour
         type: string
       - description: Dietary flags; repeated or comma-separated. Matches ALL
         in: query

@@ -140,6 +140,14 @@ func productFilterWhere(f catalogapi.ProductFilter, business *string) (string, [
 		q += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM product_seasonal_tags pt JOIN seasonal_tags st ON st.id = pt.tag_id
 			WHERE pt.product_id = p.id AND st.status = 'active' AND st.deleted_at IS NULL AND st.id::text = ANY($%d))`, len(args))
 	}
+	if len(f.FlavourSlugs) > 0 {
+		// Any selected flavour, while it is switched on. Slugs are unique per
+		// business; the product's own business keeps another's out.
+		args = append(args, f.FlavourSlugs)
+		q += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM product_flavours pf JOIN flavours fl ON fl.id = pf.flavour_id
+			WHERE pf.product_id = p.id AND fl.status = 'active' AND fl.deleted_at IS NULL
+			  AND fl.business_id IS NOT DISTINCT FROM p.business_id AND fl.slug = ANY($%d))`, len(args))
+	}
 	if len(f.Dietary) > 0 {
 		// Contains: every selected dietary flag must be present.
 		args = append(args, f.Dietary)

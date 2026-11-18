@@ -18,6 +18,8 @@ func MountStorefront(sf chi.Router, h *Handler) {
 	sf.Get("/content", h.GetContent)
 	sf.Get("/coupons", h.ListStorefrontCoupons)
 	sf.Get("/seasonal-tags", h.StorefrontSeasonalTags)
+	// The home page's "Discover our flavours" cards.
+	sf.Get("/flavours", h.StorefrontFlavours)
 	// Public: a guest sending the Custom Orders form uploads photos first.
 	sf.Post("/uploads/cake-photo", h.UploadCustomerPhoto)
 }
@@ -90,6 +92,17 @@ func MountAdmin(admin chi.Router, h *Handler) {
 		tr.Put("/{tagId}", h.UpdateSeasonalTag)
 		tr.Patch("/{tagId}", h.UpdateSeasonalTag)
 		tr.Delete("/{tagId}", h.DeleteSeasonalTag)
+	})
+
+	// Flavour cards for the home page, each with its products.
+	admin.Route("/flavours", func(fr chi.Router) {
+		fr.Use(liveWrites(realtime.EventCatalogProduct, "flavourId"))
+		fr.Get("/", h.ListFlavours)
+		fr.Post("/", h.CreateFlavour)
+		fr.Get("/{flavourId}", h.GetFlavour)
+		fr.Put("/{flavourId}", h.UpdateFlavour)
+		fr.Patch("/{flavourId}", h.UpdateFlavour)
+		fr.Delete("/{flavourId}", h.DeleteFlavour)
 	})
 
 	admin.Route("/categories", func(cr chi.Router) {

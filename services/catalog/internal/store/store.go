@@ -22,6 +22,7 @@ import (
 	"bakehouse/services/catalog/internal/store/category"
 	"bakehouse/services/catalog/internal/store/content"
 	"bakehouse/services/catalog/internal/store/coupon"
+	"bakehouse/services/catalog/internal/store/flavour"
 	"bakehouse/services/catalog/internal/store/modifier"
 	"bakehouse/services/catalog/internal/store/product"
 	"bakehouse/services/catalog/internal/store/shared"
@@ -36,6 +37,7 @@ type (
 	categoryRepo     = category.Repo
 	contentRepo      = content.Repo
 	couponRepo       = coupon.Repo
+	flavourRepo      = flavour.Repo
 	modifierRepo     = modifier.Repo
 	productRepo      = product.Repo
 	tagRepo          = tag.Repo
@@ -48,6 +50,7 @@ type Store struct {
 	*categoryRepo
 	*contentRepo
 	*couponRepo
+	*flavourRepo
 	*modifierRepo
 	*productRepo
 	*tagRepo
@@ -61,6 +64,7 @@ func NewStore(pool *pgxpool.Pool) *Store {
 		categoryRepo:     category.New(pool),
 		contentRepo:      content.New(pool),
 		couponRepo:       coupon.New(pool),
+		flavourRepo:      flavour.New(pool),
 		modifierRepo:     modifier.New(pool),
 		productRepo:      product.New(pool, tags),
 		tagRepo:          tags,
