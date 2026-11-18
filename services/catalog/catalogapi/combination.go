@@ -237,6 +237,66 @@ func (p Product) FindCombination(optionIDs []string) *ProductCombination {
 	return nil
 }
 
+// MatchCombination finds the row a customer's variation choices sell.
+//
+// A row made of exactly these options wins (exact=true), and its typed price
+// applies. Otherwise the choice is sellable when an On row agrees with it:
+// the row holds every chosen option, and anything else on the row comes from
+// an optional set the customer left blank. Rows are built across every set, so without this an
+// optional set (Sponge) could never be left blank. Such a choice is priced
+// by its own options (exact=false), not by the row's typed price, which
+// belongs to options that were not chosen.
+func (p Product) MatchCombination(optionIDs []string) (row *ProductCombination, exact bool) {
+	if r := p.FindCombination(optionIDs); r != nil {
+		return r, true
+	}
+	idx, _ := p.variationIndex()
+	answered := map[int]bool{}
+	chosen := map[string]bool{}
+	for _, id := range optionIDs {
+		ref, ok := idx[strings.ToLower(id)]
+		if !ok || answered[ref.group] {
+			return nil, false // not a variation option, or two from one set
+		}
+		answered[ref.group] = true
+		chosen[strings.ToLower(id)] = true
+	}
+	// Index as variationIndex counts groups. A required set the row uses must
+	// be answered (it can't be one of the row's extras); one the row doesn't
+	// use, as with partial rows, needs no answer.
+	required := map[int]bool{}
+	gi := 0
+	for _, g := range p.ModifierGroups {
+		if g.Kind != ModifierKindVariation || len(g.Options) == 0 {
+			continue
+		}
+		required[gi] = g.IsRequired
+		gi++
+	}
+	for i := range p.Combinations {
+		c := p.Combinations[i]
+		if !c.IsActive || !p.CombinationValid(c) {
+			continue
+		}
+		held, fits := 0, true
+		for _, id := range c.OptionIDs {
+			lid := strings.ToLower(id)
+			if chosen[lid] {
+				held++
+				continue
+			}
+			if g := idx[lid].group; answered[g] || required[g] {
+				fits = false
+				break
+			}
+		}
+		if fits && held == len(chosen) {
+			return &p.Combinations[i], false
+		}
+	}
+	return nil, false
+}
+
 // VariationOptionIDs keeps only the ids that belong to the product's
 // variation groups — the part of a selection a combination is made of.
 func (p Product) VariationOptionIDs(ids []string) []string {

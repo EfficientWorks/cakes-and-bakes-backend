@@ -142,6 +142,10 @@ func (b *Branch) QuoteDelivery(in DeliveryQuoteInput) DeliveryQuote {
 	var distInUnit float64
 	switch p.Region {
 	case RegionRadius:
+		if in.DistanceKm == nil && NormalizePostcode(in.Postcode) == "" {
+			q.Reason = "Enter your delivery address to check delivery."
+			return q
+		}
 		if in.DistanceKm == nil {
 			q.Reason = "We couldn't find that address on the map. Check the street and " + b.postcodeLabel() + "."
 			return q

@@ -81,6 +81,12 @@ func (s *Service) locateCartAddress(ctx context.Context, cartID string, b *franc
 	}
 }
 
+// cartHasDeliveryAddress reports whether the customer has given any part of a
+// delivery address yet: a street or a postcode.
+func cartHasDeliveryAddress(cart *ordersapi.Cart) bool {
+	return strings.TrimSpace(derefStr(cart.DeliveryStreet)) != "" || strings.TrimSpace(derefStr(cart.DeliveryPostcode)) != ""
+}
+
 // errDeliveryUnavailable is checkout's refusal for an address the store
 // doesn't deliver to; the reason is the quote's own sentence.
 func errDeliveryUnavailable(reason string) error {

@@ -301,3 +301,15 @@ func TestSlotFee(t *testing.T) {
 		t.Error("time slots must not apply to free delivery")
 	}
 }
+
+// A radius store with no address yet asks for one; a postcode it can't place
+// says so.
+func TestRadiusQuoteWithoutAnAddress(t *testing.T) {
+	b := radiusStore(DeliveryPricing{ChargeType: ChargeFree})
+	if q := b.QuoteDelivery(DeliveryQuoteInput{}); q.Deliverable || !strings.Contains(q.Reason, "Enter your delivery address") {
+		t.Fatalf("no address: %+v", q)
+	}
+	if q := b.QuoteDelivery(DeliveryQuoteInput{Postcode: "ZZ9 9ZZ"}); q.Deliverable || !strings.Contains(q.Reason, "couldn't find") {
+		t.Fatalf("unplaced postcode: %+v", q)
+	}
+}

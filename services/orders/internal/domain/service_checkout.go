@@ -136,7 +136,12 @@ func (s *Service) ValidateCart(ctx context.Context, id CartIdentity, expect *Val
 	}
 	result.Summary = summary
 	if cart.FulfilmentType == ordersapi.FulfilmentDelivery {
-		if !summary.DeliveryAvailable {
+		// The basket checks the cart before the checkout page, which is where
+		// the delivery address is entered. With no address yet there is
+		// nothing to be out of area: let the customer through to enter one.
+		// Order creation quotes the address again and refuses it if needed.
+		addressPending := !summary.DeliveryAvailable && summary.DeliveryShortfallCents == 0 && !cartHasDeliveryAddress(cart)
+		if !summary.DeliveryAvailable && !addressPending {
 			result.Valid = false
 			msg := summary.DeliveryMessage
 			if msg == "" {

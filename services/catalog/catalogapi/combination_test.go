@@ -148,3 +148,34 @@ func TestCombination_FromPriceSkipsZero(t *testing.T) {
 		t.Fatalf("every row £0 means From £0, got %d ok=%v", lo, ok)
 	}
 }
+
+// An optional set can be left blank: the choice matches any On row that agrees
+// with it. A required set left blank, or a choice no On row agrees with, does
+// not match. A full choice still matches its own row exactly.
+func TestCombination_MatchSkipsBlankOptionalSets(t *testing.T) {
+	p := comboProduct()
+	p.ModifierGroups[0].IsRequired = true // size required, sponge optional
+
+	if row, exact := p.MatchCombination([]string{"s10", "ve"}); row == nil || !exact || row.ID != "c" {
+		t.Fatalf("full choice: want exact row c, got %v %v", row, exact)
+	}
+	if row, exact := p.MatchCombination([]string{"s8"}); row == nil || exact {
+		t.Fatalf("size only (sponge optional): want a partial match, got %v %v", row, exact)
+	}
+	if row, _ := p.MatchCombination([]string{"ve"}); row != nil {
+		t.Fatal("required size left blank must not match")
+	}
+	// An exact row that is Off is still found, and pricing refuses it.
+	if row, exact := p.MatchCombination([]string{"s8", "rv"}); row == nil || !exact || row.IsActive {
+		t.Fatalf("exact Off row: want row b, Off, got %v %v", row, exact)
+	}
+	// Size 10 alone agrees only with row c (row d names a removed option).
+	if row, _ := p.MatchCombination([]string{"s10"}); row == nil || row.ID != "c" {
+		t.Fatalf("10 Inch only: want partial match on c, got %v", row)
+	}
+	// Sponge required as well: size alone no longer matches.
+	p.ModifierGroups[1].IsRequired = true
+	if row, _ := p.MatchCombination([]string{"s8"}); row != nil {
+		t.Fatal("a required sponge left blank must not match")
+	}
+}

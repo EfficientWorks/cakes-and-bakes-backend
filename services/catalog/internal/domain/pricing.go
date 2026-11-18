@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"bakehouse/pkg/apperr"
@@ -374,10 +375,19 @@ func (s *Service) GetPricedItem(ctx context.Context, branchID, productID string,
 			chosen = append(chosen, f.ID)
 			optionSum += f.PriceDelta
 		}
-		row := product.FindCombination(chosen)
+		row, exact := product.MatchCombination(chosen)
 		if row == nil || !row.IsActive {
 			out.Available = false
 			out.AvailableReason = catalogapi.ReasonCombinationUnavailable
+		} else if !exact {
+			// An optional set left blank: the chosen options' own prices,
+			// which the line already carries, so the unit price stands.
+			names := make([]string, 0, len(flavours))
+			for _, f := range flavours {
+				names = append(names, f.Name)
+			}
+			name := strings.Join(names, " | ")
+			out.CombinationName = &name
 		} else {
 			price := optionSum
 			if row.PriceOverrideCents != nil {
